@@ -1,0 +1,9 @@
+<class_libraries>
+  <library path="drainy_controller">
+    <class name="drainy_controller/DrainyController"  type="easynav::DrainyController" base_class_type="easynav::ControllerMethodBase">
+      <description>
+        Drainy Controller.
+      </description>
+    </class>
+  </library>
+</class_libraries>

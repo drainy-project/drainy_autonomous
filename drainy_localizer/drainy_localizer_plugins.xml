@@ -1,0 +1,9 @@
+<class_libraries>
+  <library path="drainy_localizer">
+    <class name="drainy_localizer/DrainyLocalizer"  type="easynav::DrainyLocalizer" base_class_type="easynav::LocalizerMethodBase">
+      <description>
+        Drainy localizer.
+      </description>
+    </class>
+  </library>
+</class_libraries>
