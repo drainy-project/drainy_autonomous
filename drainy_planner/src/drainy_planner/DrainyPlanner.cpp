@@ -20,6 +20,9 @@ namespace easynav
 
         path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
             node->get_fully_qualified_name() + std::string("/") + plugin_name + "/path", 10);
+
+        detection_pub_ =node->create_publisher<sensor_msgs::msg::PointCloud2>(
+            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/detection", 10);
     }
 
     void DrainyPlanner::update([[maybe_unused]] NavState & nav_state)
@@ -41,30 +44,32 @@ namespace easynav
 
         auto poses = get_poses(robot_pose.pose.pose, goal);
 
-        nav_msgs::msg::Path path = nav_state.get<nav_msgs::msg::Path>("path");
-        if (path.poses.empty()) {
-            // If the path is empty, stop the robot
-            current_path_.poses.clear();
-            current_path_.header.stamp = get_node()->now();
-            current_path_.header.frame_id = goals.header.frame_id;
-            for (const auto & pose : poses) {
-            geometry_msgs::msg::PoseStamped pose_stamped;
-            pose_stamped.header.frame_id = goals.header.frame_id;
-            pose_stamped.header.stamp = current_path_.header.stamp;
-            pose_stamped.pose = pose;
-            current_path_.poses.push_back(pose_stamped);
-            }
-        }
+        // nav_msgs::msg::Path path = nav_state.get<nav_msgs::msg::Path>("path");
+        // if (path.poses.empty()) {
+        //     // If the path is empty, stop the robot
+        //     current_path_.poses.clear();
+        //     current_path_.header.stamp = get_node()->now();
+        //     current_path_.header.frame_id = goals.header.frame_id;
+        //     for (const auto & pose : poses) {
+        //     geometry_msgs::msg::PoseStamped pose_stamped;
+        //     pose_stamped.header.frame_id = goals.header.frame_id;
+        //     pose_stamped.header.stamp = current_path_.header.stamp;
+        //     pose_stamped.pose = pose;
+        //     current_path_.poses.push_back(pose_stamped);
+        //     }
+        // }
 
-        path_pub_->publish(current_path_);
+        // path_pub_->publish(current_path_);
+
 
         const auto & filtered = PointPerceptionsOpsView(perceptions)
-        .filter({-2.0, -0.35, -1.0}, {0.0, 0.35, 1.0})
+        .filter({3.0, -5.0, -5.0}, {3.3, 5.0, 5.0})
         .fuse(tf_info.map_frame)
-        .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
-        .collapse({NAN, NAN, 0.1})
+        // .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
+        // .collapse({0.1, NAN, NAN})
         .downsample(0.1)
         .as_points();
+
 
         sensor_msgs::msg::PointCloud2 cloud_out;
         pcl::toROSMsg(filtered, cloud_out);

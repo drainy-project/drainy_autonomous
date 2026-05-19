@@ -39,6 +39,8 @@ class DrainyLocalizer : public LocalizerMethodBase
 
     void publish_odom_TF(const tf2::Transform & map2odom);
 
+    void publish_bf_TF(const tf2::Transform & map2bf);
+
     void init_odom(void);
 
     void printTransform(const tf2::Transform & tf);

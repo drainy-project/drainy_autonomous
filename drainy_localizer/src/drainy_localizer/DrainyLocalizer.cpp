@@ -99,15 +99,15 @@ namespace easynav
     DrainyLocalizer::init_odom()
     {
         // To DO - Change for parameters
-        tf2::Vector3 pose(0.0, 
-                         0.0, 
-                         0.0);
+        tf2::Vector3 pose(init_pose_->position.x, 
+                         init_pose_->position.y, 
+                         init_pose_->position.z);
 
         double roll, pitch, yaw;
-        tf2::Quaternion q_odom(0.0,
-                              0.0,
-                              0.0,
-                              1.0);
+        tf2::Quaternion q_odom(init_pose_->orientation.x,
+                              init_pose_->orientation.y,
+                              init_pose_->orientation.z,
+                              init_pose_->orientation.w);
         tf2::Matrix3x3(q_odom).getRPY(roll, pitch, yaw);
         tf2::Quaternion q;
         q.setRPY(roll, pitch, yaw);
@@ -133,13 +133,29 @@ namespace easynav
         tf_broadcaster_->sendTransform(tf_msg);
     }
 
+    void
+    DrainyLocalizer::publish_bf_TF(const tf2::Transform & map2bf)
+    {
+        geometry_msgs::msg::TransformStamped tf_msg;
+        tf_msg.header.stamp = last_input_time_;
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
+        tf_msg.header.frame_id = tf_info.odom_frame;
+        tf_msg.child_frame_id = tf_info.robot_frame;
+        tf_msg.transform = tf2::toMsg(map2bf);
+        RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
+        tf_broadcaster_->sendTransform(tf_msg);
+    }
+
+
     void DrainyLocalizer::odom_callback(nav_msgs::msg::Odometry::UniquePtr msg)
     {
         odom_msg_ = std::shared_ptr<nav_msgs::msg::Odometry>(std::move(msg));
         tf2::fromMsg(odom_msg_->pose.pose, odom_tf_);
         last_input_time_ = odom_msg_->header.stamp;
         tf2::Transform map2bf = get_pose();
-        tf2::Transform map2odom = map2bf * odom_tf_.inverse();
+        tf2::Transform map2odom = map2bf * odom_tf_.inverse(); // Should be zero
+        
+        publish_bf_TF(map2bf);
         publish_odom_TF(map2odom);
 
         // RCLCPP_INFO(get_node()->get_logger(), "map2odom: ");
