@@ -6,6 +6,7 @@
 
 #include "easynav_core/LocalizerMethodBase.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
+#include "easynav_common/types/NavState.hpp"
 
 #include "tf2/LinearMath/Transform.hpp"
 #include "tf2_ros/transform_broadcaster.hpp"
@@ -35,7 +36,7 @@ class DrainyLocalizer : public LocalizerMethodBase
 
     protected:
 
-    void odom_callback(const nav_msgs::msg::Odometry::UniquePtr msg);
+    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
     void publish_odom_TF(const tf2::Transform & map2odom);
 
@@ -46,6 +47,8 @@ class DrainyLocalizer : public LocalizerMethodBase
     void printTransform(const tf2::Transform & tf);
 
     void set_init_pose(double x, double y, double z, double yaw);
+
+    nav_msgs::msg::Odometry get_odom(void);
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 

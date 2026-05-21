@@ -2,6 +2,9 @@
 
 namespace easynav
 {
+    using std::placeholders::_1;
+    using namespace std::chrono_literals;
+
     DrainyLocalizer::DrainyLocalizer()
     {
         NavState::register_printer<nav_msgs::msg::Odometry>(
@@ -147,9 +150,9 @@ namespace easynav
     }
 
 
-    void DrainyLocalizer::odom_callback(nav_msgs::msg::Odometry::UniquePtr msg)
+    void DrainyLocalizer::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
     {
-        odom_msg_ = std::shared_ptr<nav_msgs::msg::Odometry>(std::move(msg));
+        odom_msg_ = msg;
         tf2::fromMsg(odom_msg_->pose.pose, odom_tf_);
         last_input_time_ = odom_msg_->header.stamp;
         tf2::Transform map2bf = get_pose();
@@ -187,6 +190,31 @@ namespace easynav
         return est;
     }
 
+    nav_msgs::msg::Odometry 
+    DrainyLocalizer::get_odom()
+    {
+        nav_msgs::msg::Odometry odom_msg;
+
+        odom_msg.header.stamp = last_input_time_;
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
+        odom_msg.header.frame_id = tf_info.map_frame;
+        odom_msg.child_frame_id = tf_info.robot_frame;
+
+        odom_msg.pose.pose.position.x = odom_tf_.getOrigin().x();
+        odom_msg.pose.pose.position.y = odom_tf_.getOrigin().y();
+        odom_msg.pose.pose.position.z = odom_tf_.getOrigin().z();
+        odom_msg.pose.pose.orientation = tf2::toMsg(odom_tf_.getRotation());
+
+        odom_msg.twist.twist.linear.x = 0.0;
+        odom_msg.twist.twist.linear.y = 0.0;
+        odom_msg.twist.twist.linear.z = 0.0;
+        odom_msg.twist.twist.angular.x = 0.0;
+        odom_msg.twist.twist.angular.y = 0.0;
+        odom_msg.twist.twist.angular.z = 0.0;
+
+        return odom_msg;
+    }
+
     void DrainyLocalizer::update_rt([[maybe_unused]] NavState & nav_state)
     {
         if(!initialized_odom_)
@@ -194,7 +222,7 @@ namespace easynav
             init_odom();
             return;
         }
-        nav_state.set("robot_pose", odom_msg_);
+        nav_state.set("robot_pose", get_odom());
     }
 
     void DrainyLocalizer::update([[maybe_unused]] NavState & nav_state)
@@ -204,7 +232,7 @@ namespace easynav
             init_odom();
             return;
         }
-        nav_state.set("robot_pose", odom_msg_);
+        nav_state.set("robot_pose", get_odom());
     }
 } // namespace easynav
 

@@ -41,12 +41,16 @@ class DrainyPlanner : public PlannerMethodBase
 
     protected:
 
+    double error_{0.0};
+    double min_error_{0.1};
+    bool error_updated_{true};
     nav_msgs::msg::Path current_path_;  
     geometry_msgs::msg::Pose current_goal_;  
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr detection_pub_;
 
     std::vector<geometry_msgs::msg::Pose> get_poses(
+    const std::vector<std::shared_ptr<easynav::PointPerception>> & perceptions,
     const geometry_msgs::msg::Pose & start,
     const geometry_msgs::msg::Pose & goal);
 

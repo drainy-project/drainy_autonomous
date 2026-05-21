@@ -1,6 +1,3 @@
-#include <memory>
-#include <vector>
-
 #include "drainy_planner/DrainyPlanner.hpp"
 
 
@@ -15,6 +12,10 @@ namespace easynav
 
         auto node = get_node();
         const std::string & plugin_name = this->get_plugin_name();
+
+        node->declare_parameter<double>(plugin_name + ".min_error", 0.1);
+
+        node->get_parameter<double>(plugin_name + ".min_error", min_error_);
 
         RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());
 
@@ -38,52 +39,111 @@ namespace easynav
         }
 
         const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
-        const auto & goal = goals.goals.front().pose;
+        const auto & path = nav_state.get<nav_msgs::msg::Path>("path");
         const auto & perceptions = nav_state.get<PointPerceptions>("points");
-        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
 
-        auto poses = get_poses(robot_pose.pose.pose, goal);
+        if (!current_path_.poses.empty()) {
+            double dx = current_path_.poses.front().pose.position.x - robot_pose.pose.pose.position.x;
+            double dy = current_path_.poses.front().pose.position.y - robot_pose.pose.pose.position.y;
+            double dz = current_path_.poses.front().pose.position.z - robot_pose.pose.pose.position.z;
+            error_ = std::hypot(dx, dy, dz);
+        }
+        
+        if (error_ < min_error_) {error_updated_ = true;}
 
-        // nav_msgs::msg::Path path = nav_state.get<nav_msgs::msg::Path>("path");
-        // if (path.poses.empty()) {
-        //     // If the path is empty, stop the robot
-        //     current_path_.poses.clear();
-        //     current_path_.header.stamp = get_node()->now();
-        //     current_path_.header.frame_id = goals.header.frame_id;
-        //     for (const auto & pose : poses) {
-        //     geometry_msgs::msg::PoseStamped pose_stamped;
-        //     pose_stamped.header.frame_id = goals.header.frame_id;
-        //     pose_stamped.header.stamp = current_path_.header.stamp;
-        //     pose_stamped.pose = pose;
-        //     current_path_.poses.push_back(pose_stamped);
-        //     }
-        // }
+        if(error_updated_){
+            RCLCPP_INFO(get_node()->get_logger(), "Path updated");
+            error_updated_ = false;
+            geometry_msgs::msg::Pose goal;
+            goal.position.x = robot_pose.pose.pose.position.x + 5.0;
+            goal.position.y = robot_pose.pose.pose.position.y;
+            goal.position.z = robot_pose.pose.pose.position.z;
+            auto poses = get_poses(perceptions, robot_pose.pose.pose, goal);
 
-        // path_pub_->publish(current_path_);
+            if (path.poses.empty()) {
+                current_path_.poses.clear();
+                current_path_.header.stamp = get_node()->now();
+                current_path_.header.frame_id = goals.header.frame_id;
+                for (const auto & pose : poses) {
+                geometry_msgs::msg::PoseStamped pose_stamped;
+                pose_stamped.header.frame_id = goals.header.frame_id;
+                pose_stamped.header.stamp = current_path_.header.stamp;
+                pose_stamped.pose = pose;
+                current_path_.poses.push_back(pose_stamped);
+                }
+            }
 
+            path_pub_->publish(current_path_); 
 
-        const auto & filtered = PointPerceptionsOpsView(perceptions)
-        .filter({3.0, -5.0, -5.0}, {3.3, 5.0, 5.0})
-        .fuse(tf_info.map_frame)
-        // .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
-        // .collapse({0.1, NAN, NAN})
-        .downsample(0.1)
-        .as_points();
-
-
-        sensor_msgs::msg::PointCloud2 cloud_out;
-        pcl::toROSMsg(filtered, cloud_out);
-        cloud_out.header.frame_id = tf_info.map_frame;
-        cloud_out.header.stamp = get_node()->now();
-        detection_pub_->publish(cloud_out);
+        }
         
     }
 
     std::vector<geometry_msgs::msg::Pose> DrainyPlanner::get_poses(
+        const std::vector<std::shared_ptr<easynav::PointPerception>>& perceptions,
         const geometry_msgs::msg::Pose & start,
         const geometry_msgs::msg::Pose & goal)
     {
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
         std::vector<geometry_msgs::msg::Pose> path;
+        pcl::PointCloud<pcl::PointXYZ> final_cloud;
+        double x_acum = 0, y_acum = 0, z_acum = 0;  
+        size_t real_points = 0;
+        double forward_increment = 2.0;
+        double min_distance = 3.0;
+        double window_distance = 0.2; 
+        int max_windows = 3;
+
+        path.push_back(start);
+
+        for (unsigned i=0; i<max_windows; i++)
+        {
+            const auto & filtered = PointPerceptionsOpsView(perceptions)
+            .filter({(min_distance), -5.0, -5.0}, {(min_distance + window_distance), 5.0, 5.0})
+            .fuse(tf_info.map_frame)
+            // .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
+            // .collapse({0.1, NAN, NAN})
+            .downsample(0.1)
+            .as_points();
+
+
+
+            for (const auto & point : filtered) {
+                if(!std::isnan(point.x) || !std::isnan(point.y) || !std::isnan(point.z)) {
+                    x_acum += point.x;
+                    y_acum += point.y;
+                    z_acum += point.z;
+                    real_points++;
+                }
+            }
+
+            geometry_msgs::msg::Pose avg_pose;
+            avg_pose.position.x = (real_points > 0) ? x_acum / real_points : 0.0;
+            avg_pose.position.y = (real_points > 0) ? y_acum / real_points : 0.0;
+            avg_pose.position.z = (real_points > 0) ? z_acum / real_points : 0.0;
+
+            // RCLCPP_INFO(get_node()->get_logger(), "x:=  %f y:=  %f z:=  %f", avg_pose.position.x, avg_pose.position.y, avg_pose.position.z);
+
+            path.push_back(avg_pose);
+            pcl::PointCloud<pcl::PointXYZ> filtered_xyz;
+            pcl::copyPointCloud(filtered, filtered_xyz);
+            final_cloud += filtered_xyz;
+            min_distance += forward_increment;
+            real_points = 0;
+            x_acum = 0; y_acum = 0; z_acum = 0; 
+        }
+
+        if(std::hypot(path.back().position.x - goal.position.x, path.back().position.y - goal.position.y) < min_error_) {
+            path.push_back(goal);
+        }
+
+        sensor_msgs::msg::PointCloud2 cloud_out;
+        pcl::toROSMsg(final_cloud, cloud_out);
+        cloud_out.header.frame_id = tf_info.map_frame;
+        cloud_out.header.stamp = get_node()->now();
+        detection_pub_->publish(cloud_out);
+
+        std::reverse(path.begin(), path.end());
 
         if (path.empty()) {path.push_back(goal);}
         return path;
