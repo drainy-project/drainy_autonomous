@@ -48,12 +48,20 @@ namespace easynav
             double dz = current_path_.poses.front().pose.position.z - robot_pose.pose.pose.position.z;
             error_ = std::hypot(dx, dy, dz);
         }
-        
-        if (error_ < min_error_) {error_updated_ = true;}
 
+        if (!current_path_.poses.empty()) {
+            double dx = current_path_.poses.back().pose.position.x - robot_pose.pose.pose.position.x;
+            double dy = current_path_.poses.back().pose.position.y - robot_pose.pose.pose.position.y;
+            double dz = current_path_.poses.back().pose.position.z - robot_pose.pose.pose.position.z;
+            local_error_ = std::hypot(dx, dy, dz);
+        }
+
+        RCLCPP_INFO(get_node()->get_logger(), "local:=  %f error:=  %f", local_error_, error_);
+        
+        if(error_ < min_error_ || current_path_.poses.size() < 2){error_updated_ = true;}
+        
         if(error_updated_){
             RCLCPP_INFO(get_node()->get_logger(), "Path updated");
-            error_updated_ = false;
             geometry_msgs::msg::Pose goal;
             goal.position.x = robot_pose.pose.pose.position.x + 5.0;
             goal.position.y = robot_pose.pose.pose.position.y;
@@ -72,10 +80,15 @@ namespace easynav
                 current_path_.poses.push_back(pose_stamped);
                 }
             }
-
-            path_pub_->publish(current_path_); 
-
         }
+
+        if (local_error_ < min_error_ && !error_updated_) {
+            RCLCPP_INFO(get_node()->get_logger(), "Path reached");
+            current_path_.poses.erase(current_path_.poses.end());
+        }
+        error_updated_ = false;
+        nav_state.set("path", current_path_);
+        path_pub_->publish(current_path_); 
         
     }
 
@@ -94,7 +107,7 @@ namespace easynav
         double window_distance = 0.2; 
         int max_windows = 3;
 
-        path.push_back(start);
+        //path.push_back(start);
 
         for (unsigned i=0; i<max_windows; i++)
         {
@@ -133,7 +146,7 @@ namespace easynav
             x_acum = 0; y_acum = 0; z_acum = 0; 
         }
 
-        if(std::hypot(path.back().position.x - goal.position.x, path.back().position.y - goal.position.y) < min_error_) {
+        if(std::hypot(path.back().position.x - goal.position.x, path.back().position.y - goal.position.y) > min_error_) {
             path.push_back(goal);
         }
 

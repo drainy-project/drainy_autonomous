@@ -43,6 +43,7 @@ class DrainyPlanner : public PlannerMethodBase
 
     double error_{0.0};
     double min_error_{0.1};
+    double local_error_{0.1};
     bool error_updated_{true};
     nav_msgs::msg::Path current_path_;  
     geometry_msgs::msg::Pose current_goal_;  

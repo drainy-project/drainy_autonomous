@@ -54,7 +54,7 @@ namespace easynav
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
 
         odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(
-            "/mavros/local_position/odom", qos,
+            "/genz/odometry", qos,
             std::bind(&DrainyLocalizer::odom_callback, this, std::placeholders::_1));
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(get_node());
