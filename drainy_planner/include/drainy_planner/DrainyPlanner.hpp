@@ -45,6 +45,7 @@ class DrainyPlanner : public PlannerMethodBase
     double min_error_{0.1};
     double local_error_{0.1};
     bool error_updated_{true};
+    pcl::PointCloud<pcl::PointXYZ> detection_;
     nav_msgs::msg::Path current_path_;  
     geometry_msgs::msg::Pose current_goal_;  
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;

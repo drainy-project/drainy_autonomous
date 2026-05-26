@@ -58,27 +58,26 @@ namespace easynav
 
         RCLCPP_INFO(get_node()->get_logger(), "local:=  %f error:=  %f", local_error_, error_);
         
-        if(error_ < min_error_ || current_path_.poses.size() < 2){error_updated_ = true;}
+        if(error_ < min_error_){error_updated_ = true;}
         
         if(error_updated_){
             RCLCPP_INFO(get_node()->get_logger(), "Path updated");
             geometry_msgs::msg::Pose goal;
-            goal.position.x = robot_pose.pose.pose.position.x + 5.0;
+            goal.position.x = robot_pose.pose.pose.position.x + 7.0;
             goal.position.y = robot_pose.pose.pose.position.y;
             goal.position.z = robot_pose.pose.pose.position.z;
             auto poses = get_poses(perceptions, robot_pose.pose.pose, goal);
-
-            if (path.poses.empty()) {
-                current_path_.poses.clear();
-                current_path_.header.stamp = get_node()->now();
-                current_path_.header.frame_id = goals.header.frame_id;
-                for (const auto & pose : poses) {
-                geometry_msgs::msg::PoseStamped pose_stamped;
-                pose_stamped.header.frame_id = goals.header.frame_id;
-                pose_stamped.header.stamp = current_path_.header.stamp;
-                pose_stamped.pose = pose;
-                current_path_.poses.push_back(pose_stamped);
-                }
+            RCLCPP_INFO(get_node()->get_logger(), "Poses lenght:= %ld", current_path_.poses.size());
+            RCLCPP_INFO(get_node()->get_logger(), "Set poses");
+            current_path_.poses.clear();
+            current_path_.header.stamp = get_node()->now();
+            current_path_.header.frame_id = goals.header.frame_id;
+            for (const auto & pose : poses) {
+            geometry_msgs::msg::PoseStamped pose_stamped;
+            pose_stamped.header.frame_id = goals.header.frame_id;
+            pose_stamped.header.stamp = current_path_.header.stamp;
+            pose_stamped.pose = pose;
+            current_path_.poses.push_back(pose_stamped);
             }
         }
 
@@ -99,7 +98,6 @@ namespace easynav
     {
         const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
         std::vector<geometry_msgs::msg::Pose> path;
-        pcl::PointCloud<pcl::PointXYZ> final_cloud;
         double x_acum = 0, y_acum = 0, z_acum = 0;  
         size_t real_points = 0;
         double forward_increment = 2.0;
@@ -113,7 +111,7 @@ namespace easynav
         {
             const auto & filtered = PointPerceptionsOpsView(perceptions)
             .filter({(min_distance), -5.0, -5.0}, {(min_distance + window_distance), 5.0, 5.0})
-            .fuse(tf_info.map_frame)
+            .fuse(tf_info.robot_frame)
             // .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
             // .collapse({0.1, NAN, NAN})
             .downsample(0.1)
@@ -123,35 +121,33 @@ namespace easynav
 
             for (const auto & point : filtered) {
                 if(!std::isnan(point.x) || !std::isnan(point.y) || !std::isnan(point.z)) {
-                    x_acum += point.x;
-                    y_acum += point.y;
-                    z_acum += point.z;
+                    x_acum += (point.x + start.position.x);
+                    y_acum += (point.y + start.position.y);
+                    z_acum += (point.z + start.position.z);
                     real_points++;
                 }
             }
 
             geometry_msgs::msg::Pose avg_pose;
-            avg_pose.position.x = (real_points > 0) ? x_acum / real_points : 0.0;
-            avg_pose.position.y = (real_points > 0) ? y_acum / real_points : 0.0;
-            avg_pose.position.z = (real_points > 0) ? z_acum / real_points : 0.0;
+            avg_pose.position.x = (real_points > 0) ? (x_acum / real_points): 0.0;
+            avg_pose.position.y = (real_points > 0) ? (y_acum / real_points): 0.0;
+            avg_pose.position.z = (real_points > 0) ? (z_acum / real_points): 0.0;
 
             // RCLCPP_INFO(get_node()->get_logger(), "x:=  %f y:=  %f z:=  %f", avg_pose.position.x, avg_pose.position.y, avg_pose.position.z);
 
             path.push_back(avg_pose);
-            pcl::PointCloud<pcl::PointXYZ> filtered_xyz;
-            pcl::copyPointCloud(filtered, filtered_xyz);
-            final_cloud += filtered_xyz;
+            detection_ += filtered;
             min_distance += forward_increment;
             real_points = 0;
             x_acum = 0; y_acum = 0; z_acum = 0; 
         }
 
-        if(std::hypot(path.back().position.x - goal.position.x, path.back().position.y - goal.position.y) > min_error_) {
-            path.push_back(goal);
-        }
+        // if(std::hypot(path.back().position.x - goal.position.x, path.back().position.y - goal.position.y) < min_error_) {
+        //     path.push_back(goal);
+        // }
 
         sensor_msgs::msg::PointCloud2 cloud_out;
-        pcl::toROSMsg(final_cloud, cloud_out);
+        pcl::toROSMsg(detection_, cloud_out);
         cloud_out.header.frame_id = tf_info.map_frame;
         cloud_out.header.stamp = get_node()->now();
         detection_pub_->publish(cloud_out);
