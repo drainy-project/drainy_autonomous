@@ -117,8 +117,6 @@ namespace easynav
             .downsample(0.1)
             .as_points();
 
-
-
             for (const auto & point : filtered) {
                 if(!std::isnan(point.x) || !std::isnan(point.y) || !std::isnan(point.z)) {
                     x_acum += (point.x + start.position.x);
@@ -148,7 +146,7 @@ namespace easynav
 
         sensor_msgs::msg::PointCloud2 cloud_out;
         pcl::toROSMsg(detection_, cloud_out);
-        cloud_out.header.frame_id = tf_info.map_frame;
+        cloud_out.header.frame_id = tf_info.robot_frame;
         cloud_out.header.stamp = get_node()->now();
         detection_pub_->publish(cloud_out);
 

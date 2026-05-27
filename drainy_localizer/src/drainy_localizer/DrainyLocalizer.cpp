@@ -57,6 +57,9 @@ namespace easynav
             "/genz/odometry", qos,
             std::bind(&DrainyLocalizer::odom_callback, this, std::placeholders::_1));
 
+        path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
+            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/trajectory", 10);
+
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(get_node());
         
         init_pose_ = std::make_shared<geometry_msgs::msg::Pose>();
@@ -232,7 +235,16 @@ namespace easynav
             init_odom();
             return;
         }
-        nav_state.set("robot_pose", get_odom());
+        nav_msgs::msg::Odometry odom = get_odom();
+        nav_state.set("robot_pose", odom);
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
+        trajectory_.header.stamp = get_node()->now();
+        trajectory_.header.frame_id = tf_info.map_frame;
+        geometry_msgs::msg::PoseStamped pose_stamped;
+        pose_stamped.header = trajectory_.header;
+        pose_stamped.pose = odom.pose.pose;
+        trajectory_.poses.push_back(pose_stamped);
+        path_pub_->publish(trajectory_); 
     }
 } // namespace easynav
 

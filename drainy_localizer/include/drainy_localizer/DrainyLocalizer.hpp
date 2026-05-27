@@ -14,6 +14,7 @@
 
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose.hpp"
+#include "nav_msgs/msg/path.hpp"
 
 namespace easynav
 {
@@ -51,6 +52,10 @@ class DrainyLocalizer : public LocalizerMethodBase
     nav_msgs::msg::Odometry get_odom(void);
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+
+    nav_msgs::msg::Path trajectory_;  
+
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
     nav_msgs::msg::Odometry::SharedPtr odom_msg_{nullptr};
 

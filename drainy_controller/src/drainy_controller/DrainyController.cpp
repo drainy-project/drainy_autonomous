@@ -65,22 +65,32 @@ namespace easynav
         robot_m.getRPY(robot_roll, robot_pitch, robot_yaw);
 
         tf2::Quaternion goal_q(
-            robot_pose.pose.pose.orientation.x,
-            robot_pose.pose.pose.orientation.y,
-            robot_pose.pose.pose.orientation.z,
-            robot_pose.pose.pose.orientation.w);
-        tf2::Matrix3x3 goal_m(robot_q);
+            goal_pose.orientation.x,
+            goal_pose.orientation.y,
+            goal_pose.orientation.z,
+            goal_pose.orientation.w);
+        tf2::Matrix3x3 goal_m(goal_q);
         goal_m.getRPY(goal_roll, goal_pitch, goal_yaw);
 
         double ex = goal_pose.position.x - robot_pose.pose.pose.position.x;
         double ey = goal_pose.position.y - robot_pose.pose.pose.position.y;
         double ez = goal_pose.position.z - robot_pose.pose.pose.position.z;
-        double eyaw = goal_yaw - robot_yaw;
+        double e_angle = std::atan2(ey,ex);
+
+        double eyaw = e_angle - robot_yaw;
 
         double x_gain = 0.2;
-        double y_gain = 0.5;
+        double y_gain = 0.2;
         double z_gain = 0.2;
         double yaw_gain = 0.5;
+
+        RCLCPP_INFO(get_node()->get_logger(), "Error yaw:= %f", eyaw);
+
+        if (std::abs(eyaw) > 0.1) {
+            x_gain = 0;
+            y_gain = 0;
+            z_gain = 0;
+        }
 
         double vel_lineal_max = 1.0;
         double vel_angular_max = 1.0;
