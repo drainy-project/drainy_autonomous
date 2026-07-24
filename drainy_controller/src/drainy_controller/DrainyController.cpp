@@ -82,15 +82,15 @@ namespace easynav
         double x_gain = 0.2;
         double y_gain = 0.2;
         double z_gain = 0.2;
-        double yaw_gain = 0.5;
+        double yaw_gain = 0.1;
 
-        RCLCPP_INFO(get_node()->get_logger(), "Error yaw:= %f", eyaw);
+        // RCLCPP_INFO(get_node()->get_logger(), "Error yaw:= %f", eyaw);
 
-        if (std::abs(eyaw) > 0.1) {
-            x_gain = 0;
-            y_gain = 0;
-            z_gain = 0;
-        }
+        // if (std::abs(eyaw) > 0.1) {
+        //     x_gain = 0;
+        //     y_gain = 0;
+        //     z_gain = 0;
+        // }
 
         double vel_lineal_max = 1.0;
         double vel_angular_max = 1.0;

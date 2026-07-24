@@ -104,6 +104,8 @@ namespace easynav
         double min_distance = 3.0;
         double window_distance = 0.2; 
         int max_windows = 3;
+        double max_value_x, max_value_y, max_value_z;
+        double min_value_x, min_value_y, min_value_z;
 
         //path.push_back(start);
 
@@ -111,7 +113,7 @@ namespace easynav
         {
             const auto & filtered = PointPerceptionsOpsView(perceptions)
             .filter({(min_distance), -5.0, -5.0}, {(min_distance + window_distance), 5.0, 5.0})
-            .fuse(tf_info.robot_frame)
+            .fuse(tf_info.map_frame)
             // .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
             // .collapse({0.1, NAN, NAN})
             .downsample(0.1)
@@ -119,19 +121,32 @@ namespace easynav
 
             for (const auto & point : filtered) {
                 if(!std::isnan(point.x) || !std::isnan(point.y) || !std::isnan(point.z)) {
-                    x_acum += (point.x + start.position.x);
-                    y_acum += (point.y + start.position.y);
-                    z_acum += (point.z + start.position.z);
+                    auto x = (point.x + start.position.x);
+                    auto y = (point.y + start.position.y);
+                    auto z = (point.z + start.position.z);
+                    x_acum += x;
+                    y_acum += y;
+                    z_acum += z;
+                    max_value_x = std::max(max_value_x, x);
+                    max_value_y = std::max(max_value_y, y);
+                    max_value_z = std::max(max_value_z, z);
+                    min_value_x = std::min(min_value_x, x);
+                    min_value_y = std::min(min_value_y, y);
+                    min_value_z = std::min(min_value_z, z);
                     real_points++;
                 }
             }
 
             geometry_msgs::msg::Pose avg_pose;
-            avg_pose.position.x = (real_points > 0) ? (x_acum / real_points): 0.0;
-            avg_pose.position.y = (real_points > 0) ? (y_acum / real_points): 0.0;
-            avg_pose.position.z = (real_points > 0) ? (z_acum / real_points): 0.0;
+            // avg_pose.position.x = (real_points > 0) ? (x_acum / real_points): 0.0;
+            // avg_pose.position.y = (real_points > 0) ? (y_acum / real_points): 0.0;
+            // avg_pose.position.z = (real_points > 0) ? (z_acum / real_points): 0.0;
 
-            // RCLCPP_INFO(get_node()->get_logger(), "x:=  %f y:=  %f z:=  %f", avg_pose.position.x, avg_pose.position.y, avg_pose.position.z);
+            avg_pose.position.x = (max_value_x + min_value_x) / 2.0;
+            avg_pose.position.y = (max_value_y + min_value_y) / 2.0;
+            avg_pose.position.z = (max_value_z + min_value_z) / 2.0;            
+
+            RCLCPP_INFO(get_node()->get_logger(), "--- \n x:=  %f \n y:=  %f \n z:=  %f", avg_pose.position.x, avg_pose.position.y, avg_pose.position.z);
 
             path.push_back(avg_pose);
             detection_ += filtered;
@@ -146,7 +161,7 @@ namespace easynav
 
         sensor_msgs::msg::PointCloud2 cloud_out;
         pcl::toROSMsg(detection_, cloud_out);
-        cloud_out.header.frame_id = tf_info.robot_frame;
+        cloud_out.header.frame_id = tf_info.map_frame;
         cloud_out.header.stamp = get_node()->now();
         detection_pub_->publish(cloud_out);
 
