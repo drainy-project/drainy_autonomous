@@ -58,7 +58,7 @@ namespace easynav
             std::bind(&DrainyLocalizer::odom_callback, this, std::placeholders::_1));
 
         path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/trajectory", 10);
+            node->get_name() + std::string("/") + plugin_name + "/trajectory", 10);
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(get_node());
         

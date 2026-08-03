@@ -20,10 +20,10 @@ namespace easynav
         RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());
 
         path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/path", 10);
+            node->get_name() + std::string("/") + plugin_name + "/path", 10);
 
         detection_pub_ =node->create_publisher<sensor_msgs::msg::PointCloud2>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/detection", 10);
+            node->get_name() + std::string("/") + plugin_name + "/detection", 10);
     }
 
     void DrainyPlanner::update([[maybe_unused]] NavState & nav_state)
@@ -111,13 +111,12 @@ namespace easynav
 
         for (unsigned i=0; i<max_windows; i++)
         {
-            const auto & filtered = PointPerceptionsOpsView(perceptions)
+            auto view = PointPerceptionsOpsView(perceptions);
+            view.downsample(0.1)
             .filter({(min_distance), -5.0, -5.0}, {(min_distance + window_distance), 5.0, 5.0})
             .fuse(tf_info.map_frame)
-            // .filter({NAN, NAN, 0.1}, {NAN, NAN, NAN})
-            // .collapse({0.1, NAN, NAN})
-            .downsample(0.1)
-            .as_points();
+            .downsample(0.1);
+            const auto & filtered = view.as_points();
 
             for (const auto & point : filtered) {
                 if(!std::isnan(point.x) || !std::isnan(point.y) || !std::isnan(point.z)) {
