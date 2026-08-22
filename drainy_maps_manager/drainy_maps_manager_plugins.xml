@@ -1,0 +1,9 @@
+<class_libraries>
+  <library path="drainy_maps_manager">
+    <class name="drainy_maps_manager/DrainyMapsManager"  type="easynav::DrainyMapsManager" base_class_type="easynav::MapsManagerBase">
+      <description>
+        Drainy Maps Manager.
+      </description>
+    </class>
+  </library>
+</class_libraries>

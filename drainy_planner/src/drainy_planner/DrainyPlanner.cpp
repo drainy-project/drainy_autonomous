@@ -40,7 +40,7 @@ namespace easynav
 
         const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
         const auto & path = nav_state.get<nav_msgs::msg::Path>("path");
-        const auto & perceptions = nav_state.get<PointPerceptions>("points");
+        const auto & perceptions = nav_state.get_no_group<PointPerception>();
 
         if (!current_path_.poses.empty()) {
             double dx = current_path_.poses.front().pose.position.x - robot_pose.pose.pose.position.x;
