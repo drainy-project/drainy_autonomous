@@ -24,6 +24,7 @@ namespace easynav
             rclcpp::QoS(100),
             [&](sensor_msgs::msg::PointCloud2::UniquePtr msg) {
 
+                pc2_map_msg_ = *msg;
             // navmap_ros::BuildParams params;
             // navmap_ = navmap_ros::from_pointcloud2(*msg, navmap_msg_, params);
 
@@ -36,13 +37,20 @@ namespace easynav
         savemap_srv_ = node->create_service<std_srvs::srv::Trigger>(
             node->get_fully_qualified_name() + std::string("/") + plugin_name + "/savemap",
             [this](
-            const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-            std::shared_ptr<std_srvs::srv::Trigger::Response> response)
-            {
-            (void)request;
-            (void)response;
-            // navmap_ros::io::save_to_file(navmap_, "/tmp/map.navmap");
-            // ToDo
+                const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+                std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+                {
+                (void)request;
+                rclcpp::Time now = get_node()->now();
+                std::string now_str = std::to_string(now.nanoseconds());
+                std::string tmp_pc2_map = map_path_ + "map_" + now_str + ".pcd";
+
+                pcl::PointCloud<pcl::PointXYZ> cloud;
+                pcl::fromROSMsg(pc2_map_msg_, cloud);
+                pcl::io::savePCDFileASCII(tmp_pc2_map, cloud);
+
+                response->success = true;
+                response->message = " [Drainy Maps Mapanager] : Map successfully saved to: " + tmp_pc2_map;
             });
 
     }
@@ -54,3 +62,5 @@ namespace easynav
 
 
 } // namespace easynav
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(easynav::DrainyMapsManager, easynav::MapsManagerBase)

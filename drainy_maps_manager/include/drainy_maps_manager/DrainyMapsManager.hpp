@@ -8,6 +8,14 @@
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
 
+#include "pluginlib/class_loader.hpp"
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/common/io.h>
+#include <pcl/point_types.h>
+#include "pcl_conversions/pcl_conversions.h"
+#include "pcl/point_types_conversion.h"
+
 #include "std_srvs/srv/trigger.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 
@@ -28,7 +36,7 @@ namespace easynav
         std::string map_topic_ {"/genz/local_map"};
 
         private:
-        // mapa crudo
+        sensor_msgs::msg::PointCloud2 pc2_map_msg_;
 
         // mapa modificado
 
