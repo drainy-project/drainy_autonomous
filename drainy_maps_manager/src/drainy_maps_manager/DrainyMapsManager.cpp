@@ -19,19 +19,27 @@ namespace easynav
         node->get_parameter(plugin_name + ".map_path", map_path_);
         node->get_parameter(plugin_name + ".map_topic", map_topic_);
 
+        navmap_pub_ = node->create_publisher<navmap_ros_interfaces::msg::NavMap>(
+            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/navmap",
+            rclcpp::QoS(1).transient_local().reliable());
+
+        layer_updates_pub_ = node->create_publisher<navmap_ros_interfaces::msg::NavMapLayer>(
+            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/layer_updates",
+            rclcpp::QoS(1).transient_local().reliable());
+
         incoming_pc2_map_sub_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(
             map_topic_,
             rclcpp::QoS(100),
             [&](sensor_msgs::msg::PointCloud2::UniquePtr msg) {
 
                 pc2_map_msg_ = *msg;
-            // navmap_ros::BuildParams params;
-            // navmap_ = navmap_ros::from_pointcloud2(*msg, navmap_msg_, params);
 
-
-            // navmap_msg_.header.frame_id = RTTFBuffer::getInstance()->get_tf_info().map_frame;
-            // navmap_msg_.header.stamp = this->get_node()->now();
-            // navmap_pub_->publish(navmap_msg_);
+                navmap_ros::BuildParams params;
+                navmap_ = navmap_ros::from_pointcloud2(*msg, navmap_msg_, params);
+                map_set_ = true;
+                navmap_msg_.header.frame_id = RTTFBuffer::getInstance()->get_tf_info().map_frame;
+                navmap_msg_.header.stamp = this->get_node()->now();
+                navmap_pub_->publish(navmap_msg_);
             });
 
         savemap_srv_ = node->create_service<std_srvs::srv::Trigger>(
@@ -57,7 +65,9 @@ namespace easynav
 
     void DrainyMapsManager::update(NavState & nav_state)
     {
-
+        if (!nav_state.has("map.navmap") || map_set_) {
+            nav_state.set("map.navmap", navmap_);
+        }
     }
 
 

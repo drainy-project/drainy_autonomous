@@ -14,9 +14,14 @@ find_package(pluginlib REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(navmap_core REQUIRED)
+find_package(navmap_ros REQUIRED)
+find_package(navmap_ros_interfaces REQUIRED)
+find_package(easynav_navmap_maps_manager REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
+find_package(Eigen3 REQUIRED NO_MODULE)
 
 
 add_library(${PROJECT_NAME} SHARED
@@ -34,10 +39,15 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   tf2::tf2
   tf2_ros::tf2_ros
   pluginlib::pluginlib
+  navmap_core::navmap_core
+  navmap_ros::navmap_ros
+  easynav_navmap_maps_manager::easynav_navmap_maps_manager
+  ${navmap_ros_interfaces_TARGETS}
   ${tf2_geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   ${std_srvs_TARGETS}
   ${PCL_LIBRARIES}
+  Eigen3::Eigen
 )
 
 install(
@@ -77,7 +87,12 @@ ament_export_dependencies(
   tf2
   tf2_ros
   pluginlib
+  navmap_core
+  navmap_ros
+  navmap_ros_interfaces
+  easynav_navmap_maps_manager
   nav_msgs
   std_srvs
+  Eigen3
 )
 ament_package()
