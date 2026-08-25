@@ -104,7 +104,6 @@ namespace easynav
     void
     DrainyLocalizer::init_odom()
     {
-        // To DO - Change for parameters
         tf2::Vector3 pose(init_pose_->position.x, 
                          init_pose_->position.y, 
                          init_pose_->position.z);

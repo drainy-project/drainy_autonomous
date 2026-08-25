@@ -1,6 +1,6 @@
 <class_libraries>
   <library path="drainy_planner">
-    <class name="drainy_planner/DrainyPlanner"  type="easynav::DrainyPlanner" base_class_type="easynav::PlannerMethodBase">
+    <class name="drainy_planner/DrainyPlanner"  type="easynav::navmap::DrainyPlanner" base_class_type="easynav::PlannerMethodBase">
       <description>
         Drainy planner.
       </description>

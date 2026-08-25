@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 project(drainy_maps_manager)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -17,7 +17,6 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(navmap_core REQUIRED)
 find_package(navmap_ros REQUIRED)
 find_package(navmap_ros_interfaces REQUIRED)
-find_package(easynav_navmap_maps_manager REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
@@ -41,7 +40,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   pluginlib::pluginlib
   navmap_core::navmap_core
   navmap_ros::navmap_ros
-  easynav_navmap_maps_manager::easynav_navmap_maps_manager
   ${navmap_ros_interfaces_TARGETS}
   ${tf2_geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
@@ -90,7 +88,6 @@ ament_export_dependencies(
   navmap_core
   navmap_ros
   navmap_ros_interfaces
-  easynav_navmap_maps_manager
   nav_msgs
   std_srvs
   Eigen3
