@@ -11,6 +11,7 @@
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_system/GoalManager.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
 
 #include "tf2/LinearMath/Transform.hpp"
 #include "tf2_ros/transform_broadcaster.hpp"

@@ -74,29 +74,19 @@ namespace easynav
             RCLCPP_INFO(get_node()->get_logger(), "No Robot Pose. No Map Saved");
             return;
         }
-
-        RCLCPP_INFO(get_node()->get_logger(), "Update");
         
         const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
 
         const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
 
-        RCLCPP_INFO(get_node()->get_logger(), "Robot pose");
-
         tf2::Transform tf;
         tf2::fromMsg(robot_pose.pose.pose, tf);
-
-        RCLCPP_INFO(get_node()->get_logger(), "pcl_in");
 
         pcl::PointCloud<pcl::PointXYZ> pcl_in;
         pcl::fromROSMsg(pc2_map_msg_, pcl_in);
 
-        RCLCPP_INFO(get_node()->get_logger(), "pcl_out");
-
         pcl::PointCloud<pcl::PointXYZ> pcl_out;
         pcl_out.reserve(pcl_in.points.size());
-
-        RCLCPP_INFO(get_node()->get_logger(), "Crea las dos nubes");
 
         for (const auto & p : pcl_in.points) {
             if(!std::isnan(p.x) || !std::isnan(p.y) || !std::isnan(p.z)){
@@ -110,14 +100,10 @@ namespace easynav
             } 
         }
 
-        RCLCPP_INFO(get_node()->get_logger(), "Llena la 2da nube");
-
         pcl::toROSMsg(pcl_out, out_map_msg_);
         out_map_msg_.header.frame_id = tf_info.map_frame;
         out_map_msg_.header.stamp = pc2_map_msg_.header.stamp;
         pc2_map_pub_->publish(out_map_msg_);
-
-        RCLCPP_INFO(get_node()->get_logger(), "Publica");
 
     }
 

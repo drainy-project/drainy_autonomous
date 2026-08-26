@@ -54,7 +54,7 @@ namespace easynav
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
 
         odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(
-            "/genz/odometry", qos,
+            "/genz/odometry", rclcpp::QoS(100),
             std::bind(&DrainyLocalizer::odom_callback, this, std::placeholders::_1));
 
         path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
@@ -156,12 +156,15 @@ namespace easynav
     {
         odom_msg_ = msg;
         tf2::fromMsg(odom_msg_->pose.pose, odom_tf_);
-        last_input_time_ = odom_msg_->header.stamp;
+        last_input_time_ = get_node()->now();
+        const std::string last_input_time_str = std::to_string(last_input_time_.nanoseconds());
+        RCLCPP_INFO(get_node()->get_logger(), "Last_input_time: %s", last_input_time_str.c_str());
         tf2::Transform map2bf = get_pose();
         tf2::Transform map2odom = map2bf * odom_tf_.inverse(); // Should be zero
         
         publish_bf_TF(map2bf);
-        publish_odom_TF(map2odom);
+
+        //publish_odom_TF(map2odom);
 
         // RCLCPP_INFO(get_node()->get_logger(), "map2odom: ");
         // printTransform(map2odom);
@@ -234,6 +237,9 @@ namespace easynav
             init_odom();
             return;
         }
+
+        // const std::string last_input_time_str = std::to_string(last_input_time_.nanoseconds());
+        // RCLCPP_INFO(get_node()->get_logger(), "Last_input_time UPDATE: %s", last_input_time_str.c_str());
         nav_msgs::msg::Odometry odom = get_odom();
         nav_state.set("robot_pose", odom);
         const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
