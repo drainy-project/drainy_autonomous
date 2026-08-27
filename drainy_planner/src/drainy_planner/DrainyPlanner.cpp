@@ -65,7 +65,6 @@ void DrainyPlanner::update(NavState & nav_state)
 {
   current_path_.poses.clear();
   if (!nav_state.has("goals") || !nav_state.has("robot_pose") || !nav_state.has("map.navmap")) {
-    RCLCPP_INFO(get_node()->get_logger(), "No goals. No Robot Pose. No Map Saved");
     RCLCPP_INFO(
       get_node()->get_logger(), "Goals: %s", 
       nav_state.has("goals") ? "true" : "false");

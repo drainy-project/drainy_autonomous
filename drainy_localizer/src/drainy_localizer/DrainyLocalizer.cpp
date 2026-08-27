@@ -54,11 +54,14 @@ namespace easynav
         auto qos = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
 
         odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(
-            "/genz/odometry", rclcpp::QoS(100),
+            "/genz/odometry", qos,
             std::bind(&DrainyLocalizer::odom_callback, this, std::placeholders::_1));
 
         path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
             node->get_name() + std::string("/") + plugin_name + "/trajectory", 10);
+
+        odom_pub_ = node->create_publisher<nav_msgs::msg::Odometry>(
+            node->get_name() + std::string("/") + plugin_name + "/odometry", 10);
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(get_node());
         
@@ -126,19 +129,6 @@ namespace easynav
     }
 
     void
-    DrainyLocalizer::publish_odom_TF(const tf2::Transform & map2odom)
-    {
-        geometry_msgs::msg::TransformStamped tf_msg;
-        tf_msg.header.stamp = last_input_time_;
-        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
-        tf_msg.header.frame_id = tf_info.map_frame;
-        tf_msg.child_frame_id = tf_info.odom_frame;
-        tf_msg.transform = tf2::toMsg(map2odom);
-        RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
-        tf_broadcaster_->sendTransform(tf_msg);
-    }
-
-    void
     DrainyLocalizer::publish_bf_TF(const tf2::Transform & map2bf)
     {
         geometry_msgs::msg::TransformStamped tf_msg;
@@ -151,26 +141,29 @@ namespace easynav
         tf_broadcaster_->sendTransform(tf_msg);
     }
 
+    void
+    DrainyLocalizer::publish_odom_TF(const tf2::Transform & map2odom)
+    {
+        geometry_msgs::msg::TransformStamped tf_msg;
+        tf_msg.header.stamp = last_input_time_;
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
+        tf_msg.header.frame_id = tf_info.map_frame;
+        tf_msg.child_frame_id = tf_info.odom_frame;
+        tf_msg.transform = tf2::toMsg(map2odom);
+        RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
+        tf_broadcaster_->sendTransform(tf_msg);
+    }
 
     void DrainyLocalizer::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
     {
         odom_msg_ = msg;
-        tf2::fromMsg(odom_msg_->pose.pose, odom_tf_);
         last_input_time_ = get_node()->now();
-        const std::string last_input_time_str = std::to_string(last_input_time_.nanoseconds());
-        RCLCPP_INFO(get_node()->get_logger(), "Last_input_time: %s", last_input_time_str.c_str());
-        tf2::Transform map2bf = get_pose();
-        tf2::Transform map2odom = map2bf * odom_tf_.inverse(); // Should be zero
-        
-        publish_bf_TF(map2bf);
 
-        //publish_odom_TF(map2odom);
+        odom_pub_->publish(get_odom());
 
-        // RCLCPP_INFO(get_node()->get_logger(), "map2odom: ");
-        // printTransform(map2odom);
-
-        // RCLCPP_INFO(get_node()->get_logger(), "map2bf: ");
-        // printTransform(map2bf);
+        // tf2::fromMsg(odom_msg_->pose.pose, odom_tf_);
+        // tf2::Transform map2bf = get_pose();
+        // publish_bf_TF(map2bf);
     }
 
     tf2::Transform
@@ -202,7 +195,7 @@ namespace easynav
 
         odom_msg.header.stamp = last_input_time_;
         const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
-        odom_msg.header.frame_id = tf_info.map_frame;
+        odom_msg.header.frame_id = tf_info.odom_frame;
         odom_msg.child_frame_id = tf_info.robot_frame;
 
         odom_msg.pose.pose.position.x = odom_tf_.getOrigin().x();
@@ -227,7 +220,6 @@ namespace easynav
             init_odom();
             return;
         }
-        nav_state.set("robot_pose", get_odom());
     }
 
     void DrainyLocalizer::update([[maybe_unused]] NavState & nav_state)
@@ -238,18 +230,24 @@ namespace easynav
             return;
         }
 
-        // const std::string last_input_time_str = std::to_string(last_input_time_.nanoseconds());
-        // RCLCPP_INFO(get_node()->get_logger(), "Last_input_time UPDATE: %s", last_input_time_str.c_str());
         nav_msgs::msg::Odometry odom = get_odom();
         nav_state.set("robot_pose", odom);
-        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
-        trajectory_.header.stamp = get_node()->now();
-        trajectory_.header.frame_id = tf_info.map_frame;
-        geometry_msgs::msg::PoseStamped pose_stamped;
-        pose_stamped.header = trajectory_.header;
-        pose_stamped.pose = odom.pose.pose;
-        trajectory_.poses.push_back(pose_stamped);
-        path_pub_->publish(trajectory_); 
+
+        tf2::Transform tf;     
+        tf2::fromMsg(odom.pose.pose, tf);
+        publish_bf_TF(tf);
+
+        tf2::Transform odom_tf = get_pose() * tf.inverse(); // Should be zero
+        publish_odom_TF(odom_tf);
+
+        // const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
+        // trajectory_.header.stamp = get_node()->now();
+        // trajectory_.header.frame_id = tf_info.map_frame;
+        // geometry_msgs::msg::PoseStamped pose_stamped;
+        // pose_stamped.header = trajectory_.header;
+        // pose_stamped.pose = odom.pose.pose;
+        // trajectory_.poses.push_back(pose_stamped);
+        // path_pub_->publish(trajectory_); 
     }
 } // namespace easynav
 

@@ -57,6 +57,8 @@ class DrainyLocalizer : public LocalizerMethodBase
 
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+
     nav_msgs::msg::Odometry::SharedPtr odom_msg_{nullptr};
 
     geometry_msgs::msg::Pose::SharedPtr init_pose_{nullptr};

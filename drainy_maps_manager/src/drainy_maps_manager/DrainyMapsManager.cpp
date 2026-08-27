@@ -77,11 +77,6 @@ namespace easynav
         
         const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
 
-        const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
-
-        tf2::Transform tf;
-        tf2::fromMsg(robot_pose.pose.pose, tf);
-
         pcl::PointCloud<pcl::PointXYZ> pcl_in;
         pcl::fromROSMsg(pc2_map_msg_, pcl_in);
 
@@ -91,7 +86,7 @@ namespace easynav
         for (const auto & p : pcl_in.points) {
             if(!std::isnan(p.x) || !std::isnan(p.y) || !std::isnan(p.z)){
                 tf2::Vector3 ps(p.x, p.y, p.z);
-                tf2::Vector3 p_map = tf * ps;
+                tf2::Vector3 p_map = ps;
 
                 pcl_out.push_back(pcl::PointXYZ(
                     static_cast<float>(p_map.x()),
