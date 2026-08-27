@@ -55,7 +55,11 @@ namespace easynav
 
         odom_sub_ = node->create_subscription<nav_msgs::msg::Odometry>(
             "/genz/odometry", qos,
-            std::bind(&DrainyLocalizer::odom_callback, this, std::placeholders::_1));
+            [this](nav_msgs::msg::Odometry::UniquePtr msg) {
+                odom_msg_ = *msg;
+                last_input_time_ = odom_msg_.header.stamp;
+                odom_pub_->publish(odom_msg_);
+            });
 
         path_pub_ = node->create_publisher<nav_msgs::msg::Path>(
             node->get_name() + std::string("/") + plugin_name + "/trajectory", 10);
@@ -64,8 +68,6 @@ namespace easynav
             node->get_name() + std::string("/") + plugin_name + "/odometry", 10);
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(get_node());
-        
-        init_pose_ = std::make_shared<geometry_msgs::msg::Pose>();
 
         set_init_pose(x_init, y_init, z_init, yaw_init);
     }
@@ -74,17 +76,17 @@ namespace easynav
     {
         RCLCPP_INFO(get_node()->get_logger(), "Set init_position");
 
-        init_pose_->position.x = x;
-        init_pose_->position.y = y;
-        init_pose_->position.z = z;
+        init_pose_.position.x = x;
+        init_pose_.position.y = y;
+        init_pose_.position.z = z;
 
         tf2::Quaternion q;
         q.setRPY(0, 0, yaw);
 
-        init_pose_->orientation.x = q.x();
-        init_pose_->orientation.y = q.y();
-        init_pose_->orientation.z = q.z();
-        init_pose_->orientation.w = q.w();
+        init_pose_.orientation.x = q.x();
+        init_pose_.orientation.y = q.y();
+        init_pose_.orientation.z = q.z();
+        init_pose_.orientation.w = q.w();
     }
 
     void DrainyLocalizer::printTransform(const tf2::Transform & tf)
@@ -107,15 +109,15 @@ namespace easynav
     void
     DrainyLocalizer::init_odom()
     {
-        tf2::Vector3 pose(init_pose_->position.x, 
-                         init_pose_->position.y, 
-                         init_pose_->position.z);
+        tf2::Vector3 pose(init_pose_.position.x, 
+                         init_pose_.position.y, 
+                         init_pose_.position.z);
 
         double roll, pitch, yaw;
-        tf2::Quaternion q_odom(init_pose_->orientation.x,
-                              init_pose_->orientation.y,
-                              init_pose_->orientation.z,
-                              init_pose_->orientation.w);
+        tf2::Quaternion q_odom(init_pose_.orientation.x,
+                              init_pose_.orientation.y,
+                              init_pose_.orientation.z,
+                              init_pose_.orientation.w);
         tf2::Matrix3x3(q_odom).getRPY(roll, pitch, yaw);
         tf2::Quaternion q;
         q.setRPY(roll, pitch, yaw);
@@ -154,30 +156,18 @@ namespace easynav
         tf_broadcaster_->sendTransform(tf_msg);
     }
 
-    void DrainyLocalizer::odom_callback(nav_msgs::msg::Odometry::SharedPtr msg)
-    {
-        odom_msg_ = msg;
-        last_input_time_ = get_node()->now();
-
-        odom_pub_->publish(get_odom());
-
-        // tf2::fromMsg(odom_msg_->pose.pose, odom_tf_);
-        // tf2::Transform map2bf = get_pose();
-        // publish_bf_TF(map2bf);
-    }
-
     tf2::Transform
     DrainyLocalizer::get_pose()
     {
-        tf2::Vector3 pose(odom_msg_->pose.pose.position.x, 
-                         odom_msg_->pose.pose.position.y, 
-                         odom_msg_->pose.pose.position.z);
+        tf2::Vector3 pose(odom_msg_.pose.pose.position.x, 
+                         odom_msg_.pose.pose.position.y, 
+                         odom_msg_.pose.pose.position.z);
 
         double roll, pitch, yaw;
-        tf2::Quaternion q_odom(odom_msg_->pose.pose.orientation.x,
-                              odom_msg_->pose.pose.orientation.y,
-                              odom_msg_->pose.pose.orientation.z,
-                              odom_msg_->pose.pose.orientation.w);
+        tf2::Quaternion q_odom(odom_msg_.pose.pose.orientation.x,
+                              odom_msg_.pose.pose.orientation.y,
+                              odom_msg_.pose.pose.orientation.z,
+                              odom_msg_.pose.pose.orientation.w);
         tf2::Matrix3x3(q_odom).getRPY(roll, pitch, yaw);
         tf2::Quaternion q;
         q.setRPY(roll, pitch, yaw);
@@ -240,14 +230,14 @@ namespace easynav
         tf2::Transform odom_tf = get_pose() * tf.inverse(); // Should be zero
         publish_odom_TF(odom_tf);
 
-        // const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
-        // trajectory_.header.stamp = get_node()->now();
-        // trajectory_.header.frame_id = tf_info.map_frame;
-        // geometry_msgs::msg::PoseStamped pose_stamped;
-        // pose_stamped.header = trajectory_.header;
-        // pose_stamped.pose = odom.pose.pose;
-        // trajectory_.poses.push_back(pose_stamped);
-        // path_pub_->publish(trajectory_); 
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
+        trajectory_.header.stamp = get_node()->now();
+        trajectory_.header.frame_id = tf_info.map_frame;
+        geometry_msgs::msg::PoseStamped pose_stamped;
+        pose_stamped.header = trajectory_.header;
+        pose_stamped.pose = odom.pose.pose;
+        trajectory_.poses.push_back(pose_stamped);
+        path_pub_->publish(trajectory_); 
     }
 } // namespace easynav
 

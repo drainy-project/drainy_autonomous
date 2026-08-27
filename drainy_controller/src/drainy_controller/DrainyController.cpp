@@ -36,15 +36,6 @@ namespace easynav
 
         if (!nav_state.has("path") || !nav_state.has("robot_pose") || perceptions.empty()) {
             RCLCPP_INFO(get_node()->get_logger(), "No Path, No Points or No Robot Pose");
-            RCLCPP_INFO(
-            get_node()->get_logger(), "path: %s", 
-            nav_state.has("path") ? "true" : "false");
-            RCLCPP_INFO(
-            get_node()->get_logger(), "robot_pose: %s",
-            nav_state.has("robot_pose") ? "true" : "false");
-            RCLCPP_INFO(
-            get_node()->get_logger(), "points: %s",
-            perceptions.empty() ? "true" : "false");
             return;
         }
 

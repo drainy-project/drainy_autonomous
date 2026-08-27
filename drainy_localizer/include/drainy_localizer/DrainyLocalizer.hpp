@@ -37,8 +37,6 @@ class DrainyLocalizer : public LocalizerMethodBase
 
     protected:
 
-    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
-
     void publish_odom_TF(const tf2::Transform & map2odom);
 
     void publish_bf_TF(const tf2::Transform & map2bf);
@@ -59,9 +57,9 @@ class DrainyLocalizer : public LocalizerMethodBase
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 
-    nav_msgs::msg::Odometry::SharedPtr odom_msg_{nullptr};
+    nav_msgs::msg::Odometry odom_msg_;
 
-    geometry_msgs::msg::Pose::SharedPtr init_pose_{nullptr};
+    geometry_msgs::msg::Pose init_pose_;
 
     tf2::Transform odom_tf_{tf2::Transform::getIdentity()};
 
