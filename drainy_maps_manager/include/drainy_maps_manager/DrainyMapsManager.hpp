@@ -8,9 +8,6 @@
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
 
-#include "navmap_core/NavMap.hpp"
-#include "navmap_ros/conversions.hpp"
-
 #include "pluginlib/class_loader.hpp"
 
 #include "tf2/LinearMath/Transform.hpp"
@@ -22,14 +19,16 @@
 #include <pcl/point_types.h>
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/point_types_conversion.h"
+#include <pcl/filters/passthrough.h>
 
 #include "nav_msgs/msg/occupancy_grid.hpp"
-#include "navmap_ros_interfaces/msg/nav_map.hpp"
-#include "navmap_ros_interfaces/msg/nav_map_layer.hpp"
-
 #include "std_srvs/srv/trigger.hpp"
+#include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/laser_scan.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+
+#include "drainy_common/DrainyMap.hpp"
 
 namespace easynav
 {
@@ -48,24 +47,19 @@ namespace easynav
         std::string map_topic_ {"/genz/local_map"};
 
         private:
+
+        DrainyMap drainy_map_;
+
         sensor_msgs::msg::PointCloud2 pc2_map_msg_;
 
-        sensor_msgs::msg::PointCloud2 out_map_msg_;
-
-        navmap_ros_interfaces::msg::NavMap navmap_msg_;
-
-        ::navmap::NavMap navmap_;
-
-        rclcpp::Publisher<navmap_ros_interfaces::msg::NavMap>::SharedPtr navmap_pub_;
-
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pc2_map_pub_;
-        
+        rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr laser_pub_;
+        rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_map_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_pub_;
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr incoming_pc2_map_sub_;
-
         rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr savemap_srv_;
 
+        double height_{1.0};
         double resoultion_{0.25};
-
         bool map_set_{false};
     }; 
 

@@ -35,7 +35,7 @@ namespace easynav
         const auto & perceptions = nav_state.get_no_group<PointPerception>();
 
         if (!nav_state.has("path") || !nav_state.has("robot_pose") || perceptions.empty()) {
-            RCLCPP_INFO(get_node()->get_logger(), "No Path, No Points or No Robot Pose");
+            //RCLCPP_INFO(get_node()->get_logger(), "No Path, No Points or No Robot Pose");
             return;
         }
 
