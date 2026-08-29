@@ -51,6 +51,7 @@ namespace easynav
         DrainyMap drainy_map_;
 
         sensor_msgs::msg::PointCloud2 pc2_map_msg_;
+        nav_msgs::msg::OccupancyGrid occ_map_msg_;
 
         rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr laser_pub_;
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_map_pub_;
@@ -58,7 +59,8 @@ namespace easynav
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr incoming_pc2_map_sub_;
         rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr savemap_srv_;
 
-        double height_{1.0};
+        double filter_min_ {0.75};
+        double filter_max_ {1.25};
         double resoultion_{0.25};
         bool map_set_{false};
     }; 

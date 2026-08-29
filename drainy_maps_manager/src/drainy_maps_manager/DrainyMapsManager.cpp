@@ -13,11 +13,17 @@ namespace easynav
 
         std::string package_name;
 
+        drainy_map_.initialize(100,100,resoultion_,0,0);
+
         node->declare_parameter(plugin_name + ".map_path", map_path_);
         node->declare_parameter(plugin_name + ".map_topic", map_topic_);
+        node->declare_parameter(plugin_name + ".filter_min", filter_min_);
+        node->declare_parameter(plugin_name + ".filter_max", filter_max_);
 
         node->get_parameter(plugin_name + ".map_path", map_path_);
         node->get_parameter(plugin_name + ".map_topic", map_topic_);
+        node->get_parameter(plugin_name + ".filter_min", filter_min_);
+        node->get_parameter(plugin_name + ".filter_max", filter_max_);
 
         occ_map_pub_ = node->create_publisher<nav_msgs::msg::OccupancyGrid>(
             node->get_fully_qualified_name() + std::string("/") + plugin_name + "/map",
@@ -39,17 +45,14 @@ namespace easynav
                 pc2_map_msg_ = *raw_msg;
                 auto msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
                 const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
-                const double min =  0.75; // Params
-                const double max =  1.25; // Params
                 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>());
                 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
                 pcl::fromROSMsg(pc2_map_msg_, *cloud);
                 pcl::PassThrough<pcl::PointXYZ> pass;
                 pass.setInputCloud(cloud);
                 pass.setFilterFieldName("z");
-                pass.setFilterLimits(min, max);
-                // pass.setFilterLimits(std::min(min, max), std::max(min, max));
-                // pass.setNegative(true);
+                pass.setFilterLimits(static_cast<float>(filter_min_), 
+                    static_cast<float>(filter_max_));
                 pass.filter(*cloud_filtered);
                 pcl::toROSMsg(*cloud_filtered, *msg);
                 msg->header.frame_id = tf_info.map_frame;
@@ -75,18 +78,6 @@ namespace easynav
                 // determine if laserscan rays with no obstacle data will evaluate to infinity or max_range
                 scan_msg->ranges.assign(ranges_size, scan_msg->range_max + 1.0);
 
-                // Transform cloud if necessary
-                // if (scan_msg->header.frame_id != msg->header.frame_id) {
-                //     try {
-                //     auto cloud = std::make_shared<sensor_msgs::msg::PointCloud2>();
-                //     RTTFBuffer::getInstance()->setTransform(*msg, *cloud, scan_msg->header.frame_id, tf2::durationFromSec(0.01));
-                //     msg = cloud;
-                //     } catch (tf2::TransformException & ex) {
-                //     RCLCPP_ERROR_STREAM(get_node()->get_logger(), "Transform failure: " << ex.what());
-                //     return;
-                //     }
-                // }
-
                 // Iterate through pointcloud
                 for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(*msg, "x"),
                     iter_y(*msg, "y"), iter_z(*msg, "z");
@@ -100,8 +91,7 @@ namespace easynav
                     continue;
                     }
 
-                    // if (*iter_z > max_height_ || *iter_z < min_height_) {
-                    if (*iter_z > (height_+5.0) || *iter_z < (height_-5.0)) {
+                    if (*iter_z > (filter_max_+5.0) || *iter_z < (filter_min_-5.0)) {
                     RCLCPP_INFO(
                         get_node()->get_logger(),
                         "rejected for height %f not in range (%f, %f)\n",
@@ -110,7 +100,6 @@ namespace easynav
                     }
 
                     double range = hypot(*iter_x, *iter_y);
-                    // if (range < range_min_) {
                     if (range < 0.0) {
                     RCLCPP_INFO(
                         get_node()->get_logger(),
@@ -118,7 +107,7 @@ namespace easynav
                         range, 0.0, *iter_x, *iter_y, *iter_z);
                     continue;
                     }
-                    // if (range > range_max_) {
+
                     if (range > 500.0) {
                     RCLCPP_INFO(
                         get_node()->get_logger(),
@@ -142,8 +131,9 @@ namespace easynav
                     scan_msg->ranges[index] = range;
                     }
                 }
-                laser_pub_->publish(std::move(scan_msg));
-
+                laser_pub_->publish(*scan_msg);
+                drainy_map_.to_occupancy_grid(occ_map_msg_, *scan_msg);
+                occ_map_pub_->publish(occ_map_msg_);
 
             });
 
@@ -174,19 +164,6 @@ namespace easynav
             RCLCPP_INFO(get_node()->get_logger(), "No Robot Pose. No Map Saved");
             return;
         }
-
-        const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
-
-        height_ = robot_pose.pose.pose.position.z;
-        
-        // navmap_ros::BuildParams params;
-        // params.resolution = 0.5f;
-        // navmap_ = navmap_ros::from_pointcloud2(pc2_map_msg_, navmap_msg_, params);
-        // nav_state.set("map.navmap", navmap_);
-        // navmap_msg_.header.frame_id = RTTFBuffer::getInstance()->get_tf_info().map_frame;
-        // navmap_msg_.header.stamp = this->get_node()->now();
-        // navmap_pub_->publish(navmap_msg_);
-
     }
 
 

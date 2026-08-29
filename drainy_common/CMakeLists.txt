@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(ament_cmake REQUIRED)
 find_package(easynav_common REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 
 add_library(${PROJECT_NAME} SHARED
@@ -26,6 +27,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC
   easynav_common::easynav_common
   ${nav_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
 )
 
 install(
@@ -57,5 +59,6 @@ ament_export_targets(export_${PROJECT_NAME})
 ament_export_dependencies(
   easynav_common
   nav_msgs
+  sensor_msgs
 )
 ament_package()
