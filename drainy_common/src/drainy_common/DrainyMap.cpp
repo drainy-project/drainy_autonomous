@@ -35,38 +35,53 @@ DrainyMap::initialize(
   data_.assign(width_ * height_, -1);
 }
 
+std::pair<double, double>
+DrainyMap::cell_to_metric(int x, int y) const
+{
+  double mx = origin_x_ + (static_cast<double>(x) + 0.5) * resolution_;
+  double my = origin_y_ + (static_cast<double>(y) + 0.5) * resolution_;
+  return {mx, my};
+}
+
+std::pair<int, int>
+DrainyMap::metric_to_cell(double mx, double my) const
+{
+  double relative_x = mx - origin_x_;
+  double relative_y = my - origin_y_;
+
+  int x = static_cast<int>(relative_x / resolution_);
+  int y = static_cast<int>(relative_y / resolution_);
+
+  return {x, y};
+}
+
 void
-DrainyMap::from_laser_scan(const sensor_msgs::msg::LaserScan scan_msg)
+DrainyMap::from_pc2(const sensor_msgs::msg::PointCloud2 msg)
 {
   data_.assign(width_ * height_, -1);
-  for (size_t idx = 0; idx < scan_msg.ranges.size(); ++idx) {
-    double distance = scan_msg.ranges[idx];
-    
-    if (std::isnan(distance) || std::isinf(distance) || distance < scan_msg.range_min || distance > scan_msg.range_max) {
-        continue;
+  for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(msg, "x"),
+      iter_y(msg, "y"), iter_z(msg, "z");
+      iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
+  {
+    if (std::isnan(*iter_x) || std::isnan(*iter_y) || std::isnan(*iter_z)) {
+      continue;
     }
 
-    double angle = scan_msg.angle_min + (idx * scan_msg.angle_increment);
-    
     double map_origin_x = origin_x_ - resolution_ * (width_ / 2);
     double map_origin_y = origin_y_ - resolution_ * (height_ / 2);
 
-    double wx = distance * std::cos(angle) - map_origin_x;
-    double wy = distance * std::sin(angle) - map_origin_y;
+    double wx = *iter_x - map_origin_x;
+    double wy = *iter_y - map_origin_y;
 
-    if (wx < 0 || wy < 0){
-      std::cerr << "Menor que cero" << std::endl;
-    }
-    
     size_t gx = static_cast<int>((wx) / resolution_);
     size_t gy = static_cast<int>((wy) / resolution_);
-    
+
     if ((gx < width_) && (gy < height_)) {
         int index = gy * width_ + gx;
         data_[index] = 100; 
     }
-  }
 
+  }
 }
 
 void

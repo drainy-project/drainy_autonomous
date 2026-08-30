@@ -28,7 +28,8 @@
 #include <utility>
 #include <vector>
 
-#include "sensor_msgs/msg/laser_scan.hpp"
+#include "sensor_msgs/point_cloud2_iterator.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 
 namespace easynav
@@ -43,7 +44,7 @@ public:
   void initialize(
     double m_width, double m_height, double resolution, double origin_x, double origin_y);
 
-  void from_laser_scan(const sensor_msgs::msg::LaserScan scan_msg);
+  void from_pc2(const sensor_msgs::msg::PointCloud2 msg);
   /**
    * @brief Updates a nav_msgs::msg::OccupancyGrid message from the SimpleMap contents.
    *
@@ -65,6 +66,13 @@ public:
   //bool save_to_file(const std::string & path) const;
 
   void print(bool view_data) const;
+
+  size_t width() const {return width_;}
+  size_t height() const {return height_;}
+  double resolution() const {return resolution_;}
+  
+  std::pair<double, double> cell_to_metric(int x, int y) const;
+  std::pair<int, int> metric_to_cell(double mx, double my) const;
 
 private:
   size_t width_;

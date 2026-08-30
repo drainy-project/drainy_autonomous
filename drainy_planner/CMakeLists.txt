@@ -14,11 +14,9 @@ find_package(pluginlib REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(navmap_core REQUIRED)
-find_package(navmap_ros REQUIRED)
-find_package(navmap_ros_interfaces REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
+find_package(drainy_common REQUIRED)
 
 
 add_library(${PROJECT_NAME} SHARED
@@ -36,12 +34,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   tf2::tf2
   tf2_ros::tf2_ros
   pluginlib::pluginlib
-  navmap_core::navmap_core
-  navmap_ros::navmap_ros
-  ${navmap_ros_interfaces_TARGETS}
   ${tf2_geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   ${PCL_LIBRARIES}
+  drainy_common::drainy_common
 )
 
 install(
@@ -81,9 +77,7 @@ ament_export_dependencies(
   tf2
   tf2_ros
   pluginlib
-  navmap_core
-  navmap_ros
-  navmap_ros_interfaces
   nav_msgs
+  drainy_common
 )
 ament_package()

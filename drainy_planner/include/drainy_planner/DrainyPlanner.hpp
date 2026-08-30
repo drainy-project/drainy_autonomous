@@ -19,150 +19,98 @@
 #ifndef DRAINY__PLANNER__DRAINYLOCALIZER_HPP_
 #define DRAINY__PLANNER__DRAINYLOCALIZER_HPP_
 
+#include <queue>
+#include <unordered_map>
 #include <cmath>
+#include <vector>
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp/qos.hpp"
+#include "pluginlib/class_loader.hpp"
 
-#include "easynav_core/PlannerMethodBase.hpp"
-#include "easynav_common/RTTFBuffer.hpp"
-#include "easynav_common/types/NavState.hpp"
-#include "easynav_sensors/types/PointPerception.hpp"    
-
-#include <pcl/io/pcd_io.h>
-#include <pcl_conversions/pcl_conversions.h>
-
-#include "tf2/LinearMath/Transform.hpp"
-#include "tf2_ros/transform_broadcaster.hpp"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-
-#include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/goals.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
-#include "navmap_core/NavMap.hpp"
-#include "navmap_ros/conversions.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
+
+#include "drainy_common/DrainyMap.hpp"
+
+#include "easynav_common/RTTFBuffer.hpp"
+#include "easynav_core/PlannerMethodBase.hpp"
+#include "easynav_common/types/NavState.hpp"
 
 namespace easynav
 {
-namespace navmap
-{
 
-/// \brief A planner implementing the A* algorithm on a ::navmap::NavMap grid.
-///
-/// This class generates a collision-free path using A* search over a surface-based NavMap.
-/// It supports cost-based penalties and anisotropic movement costs.
+/// \brief A planner implementing the A* algorithm on a SimpleMap grid.
 class DrainyPlanner : public PlannerMethodBase
 {
 public:
   /**
    * @brief Default constructor.
    *
-   * Initializes internal parameters and configuration values.
+   * Initializes the internal variables and parameters of the planner.
    */
   explicit DrainyPlanner();
 
   /**
    * @brief Initializes the planner.
    *
-   * Loads planner parameters, sets up ROS publishers,
-   * and prepares the NavMap-based planning environment.
+   * Configures publishers, retrieves parameters, and prepares the planner
+   * for path generation using the available map data.
    *
    * @throws std::runtime_error if initialization fails.
    */
   virtual void on_initialize() override;
 
   /**
-   * @brief Executes a planning cycle using the current navigation state.
+   * @brief Updates the planner by computing a new path.
    *
-   * Computes a path from the robot's current pose to the goal using A*.
+   * Uses the current navigation state (including the robot's position and goal)
+   * to generate a path based on the A* algorithm.
    *
-   * @param nav_state Current shared navigation state (input/output).
+   * @param nav_state The current navigation state (contains odometry and goal information).
    */
   void update(NavState & nav_state) override;
 
 protected:
-  double cost_factor_;        ///< Scaling factor applied to cell cost values.
-  double inflation_penalty_;  ///< Extra cost penalty for paths near inflated obstacles.
-  double cost_axial_;         ///< Cost multiplier for axial (horizontal/vertical) moves.
-  double cost_diagonal_;      ///< Cost multiplier for diagonal moves.
-  std::string layer_name_;
-  bool continuous_replan_ {true};     ///< Whether to replan the path at control frequency.
-  nav_msgs::msg::Path current_path_;  ///< Most recently computed path.
-  geometry_msgs::msg::Pose current_goal_;  ///< Current goal.
+  double robot_radius_;        ///< Radius of the robot used for collision checking.
+  double clearance_distance_;  ///< Minimum clearance distance from obstacles in meters.
 
-  /// Publisher for the computed navigation path (for visualization or monitoring).
+  nav_msgs::msg::Path current_path_;  ///< The last computed path.
+
+  /// Publisher for the computed navigation path.
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
 
-  /// Cached centroids for each NavCel (same indexing as ::navmap::NavMap::navcels).
-  std::vector<Eigen::Vector3f> centroids_;
-
-  /// Cached per-NavCel occupancy / cost values (0..255).
-  std::vector<std::uint8_t> occ_;
-
-  /// Reusable buffers for A* search cost and parent links.
-  std::vector<double> g_;
-  std::vector<::navmap::NavCelId> parent_;
-
   /**
-   * @brief Ensure internal caches (centroids and A* buffers) are sized for the given map.
+   * @brief Runs the A* algorithm to compute a path.
    *
-   * This avoids reallocations on every planning call. Values in g_ and parent_
-   * are reset for the current run.
-   *
-   * @param map The NavMap for which caches must be valid.
-   */
-  void ensure_graph_cache(const ::navmap::NavMap & map);
-
-  /**
-   * @brief Smooth a Path in XY while keeping every waypoint inside its original NavCel.
-   *
-   * The algorithm performs several iterations of Laplacian smoothing on XY:
-   *   p_i' = (1 - alpha) * p_i + alpha * 0.5 * (p_{i-1} + p_{i+1})
-   * For each i, the candidate point is clamped to the original triangle (NavCel)
-   * using closest-point-on-triangle, so it never leaves that NavCel. The final z'
-   * is the triangle height at the resulting (x', y').
-   *
-   * Endpoints are kept fixed. Optionally, points forming a sharp angle are also
-   * kept (see `corner_keep_deg`).
-   *
-   * @param in_path         Input nav_msgs::msg::Path (world coordinates).
-   * @param navmap          The NavMap where the path lies on.
-   * @param iterations      Number of smoothing iterations (>= 1). Default: 5.
-   * @param alpha           Smoothing factor in (0, 0.5]. Default: 0.4.
-   * @param corner_keep_deg Angle threshold (degrees): if the interior angle at a point
-   *                        is below this value, the point is kept as an anchor. Set <= 0
-   *                        to disable. Default: 0 (disabled).
-   * @return nav_msgs::msg::Path Smoothed path, same frame_id and header stamp as input.
-   */
-  nav_msgs::msg::Path path_smoother(
-    const nav_msgs::msg::Path & in_path,
-    const ::navmap::NavMap & navmap,
-    int iterations = 5,
-    float alpha = 0.4f,
-    float corner_keep_deg = 0.0f);
-
-  /**
-   * @brief Internal A* path planning routine.
-   *
-   * Computes a path on the given NavMap from the start pose to the goal pose.
-   *
-   * Movement cost is influenced by:
-   * - The cost of each NavCel (retrieved from a layer).
-   * - Additional inflation penalties near obstacles.
-   *
-   * @param map   The NavMap to plan over.
-   * @param start The robot's starting pose in world coordinates.
-   * @param goal  The goal pose in world coordinates.
-   * @return A vector of poses representing the planned path.
+   * @param map The occupancy map used for path planning.
+   * @param start The starting pose in world coordinates.
+   * @param goal The target pose in world coordinates.
+   * @param resolution The cell resolution of the map (in meters).
+   * @return A sequence of poses representing the planned path.
    */
   std::vector<geometry_msgs::msg::Pose> a_star_path(
-    const ::navmap::NavMap & map,
+    const DrainyMap & map,
     const geometry_msgs::msg::Pose & start,
-    const geometry_msgs::msg::Pose & goal);
-};
+    const geometry_msgs::msg::Pose & goal,
+    double resolution);
 
-}  // namespace navmap
+  /**
+   * @brief Checks whether a map cell is free, considering a clearance area.
+   *
+   * This function verifies if a cell and its surrounding cells (within the
+   * specified clearance radius) are free of obstacles.
+   *
+   * @param map The occupancy map to query.
+   * @param cx The x-coordinate of the cell.
+   * @param cy The y-coordinate of the cell.
+   * @param clearance_cells The clearance radius expressed in number of cells.
+   * @return true if the cell and its clearance area are free, false otherwise.
+   */
+  // bool isFreeWithClearance(
+  //   const SimpleMap & map,
+  //   int cx, int cy,
+  //   double clearance_cells);
+};
 
 }  // namespace easynav
 
