@@ -61,7 +61,10 @@ namespace easynav
 
         double filter_min_ {0.75};
         double filter_max_ {1.25};
-        double resoultion_{0.25};
+        double resolution_{0.25};
+        double max_lenght_{50};
+        double origin_x_{0.0};
+        double origin_y_{0.0};
         bool map_set_{false};
     }; 
 

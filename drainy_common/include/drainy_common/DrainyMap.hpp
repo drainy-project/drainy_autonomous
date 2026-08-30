@@ -41,8 +41,9 @@ public:
   DrainyMap();
 
   void initialize(
-    int width, int height, double resolution, double origin_x, double origin_y);
+    double m_width, double m_height, double resolution, double origin_x, double origin_y);
 
+  void from_laser_scan(const sensor_msgs::msg::LaserScan scan_msg);
   /**
    * @brief Updates a nav_msgs::msg::OccupancyGrid message from the SimpleMap contents.
    *
@@ -54,8 +55,7 @@ public:
    *
    * @param grid_msg The occupancy grid message to fill or update.
    */
-  void to_occupancy_grid(nav_msgs::msg::OccupancyGrid & grid_msg,
-    sensor_msgs::msg::LaserScan scan_msg) const;
+  void to_occupancy_grid(nav_msgs::msg::OccupancyGrid & grid_msg) const;
 
   /**
   * @brief Saves the map to a file, including metadata and cell data.
@@ -64,10 +64,12 @@ public:
   */
   //bool save_to_file(const std::string & path) const;
 
+  void print(bool view_data) const;
+
 private:
   size_t width_;
   size_t height_;
-  double resolution_;
+  double resolution_; // m / cell
   double origin_x_;
   double origin_y_;
   std::vector<uint8_t> data_;

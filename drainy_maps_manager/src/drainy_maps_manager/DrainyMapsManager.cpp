@@ -13,17 +13,20 @@ namespace easynav
 
         std::string package_name;
 
-        drainy_map_.initialize(100,100,resoultion_,0,0);
-
         node->declare_parameter(plugin_name + ".map_path", map_path_);
         node->declare_parameter(plugin_name + ".map_topic", map_topic_);
         node->declare_parameter(plugin_name + ".filter_min", filter_min_);
         node->declare_parameter(plugin_name + ".filter_max", filter_max_);
+        node->declare_parameter(plugin_name + ".max_lenght", max_lenght_);
+        node->declare_parameter(plugin_name + ".resolution", resolution_);
 
         node->get_parameter(plugin_name + ".map_path", map_path_);
         node->get_parameter(plugin_name + ".map_topic", map_topic_);
         node->get_parameter(plugin_name + ".filter_min", filter_min_);
         node->get_parameter(plugin_name + ".filter_max", filter_max_);
+        node->get_parameter(plugin_name + ".resolution", resolution_);
+
+        drainy_map_.initialize(max_lenght_,max_lenght_,resolution_, origin_x_, origin_y_);
 
         occ_map_pub_ = node->create_publisher<nav_msgs::msg::OccupancyGrid>(
             node->get_fully_qualified_name() + std::string("/") + plugin_name + "/map",
@@ -100,19 +103,11 @@ namespace easynav
                     }
 
                     double range = hypot(*iter_x, *iter_y);
-                    if (range < 0.0) {
+                    if ((0.0 > range) && (range < 500.0)) {
                     RCLCPP_INFO(
                         get_node()->get_logger(),
-                        "rejected for range %f below minimum value %f. Point: (%f, %f, %f)",
-                        range, 0.0, *iter_x, *iter_y, *iter_z);
-                    continue;
-                    }
-
-                    if (range > 500.0) {
-                    RCLCPP_INFO(
-                        get_node()->get_logger(),
-                        "rejected for range %f above maximum value %f. Point: (%f, %f, %f)",
-                        range, 500.0, *iter_x, *iter_y, *iter_z);
+                        "rejected for range %f out of bounds. Point: (%f, %f, %f)",
+                        range, *iter_x, *iter_y, *iter_z);
                     continue;
                     }
 
@@ -125,15 +120,18 @@ namespace easynav
                     continue;
                     }
 
-                    // overwrite range at laserscan ray if new range is smaller
                     int index = (angle - scan_msg->angle_min) / scan_msg->angle_increment;
                     if (range < scan_msg->ranges[index]) {
-                    scan_msg->ranges[index] = range;
+                        scan_msg->ranges[index] = range;
                     }
                 }
                 laser_pub_->publish(*scan_msg);
-                drainy_map_.to_occupancy_grid(occ_map_msg_, *scan_msg);
+                drainy_map_.from_laser_scan(*scan_msg);
+                drainy_map_.to_occupancy_grid(occ_map_msg_);
+                occ_map_msg_.header.frame_id = tf_info.map_frame;
+                occ_map_msg_.header.stamp = get_node()->now();
                 occ_map_pub_->publish(occ_map_msg_);
+                //drainy_map_.print(false);
 
             });
 
