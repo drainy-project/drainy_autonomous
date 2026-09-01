@@ -188,6 +188,8 @@ namespace easynav
         odom_msg.header.frame_id = tf_info.odom_frame;
         odom_msg.child_frame_id = tf_info.robot_frame;
 
+        odom_tf_ = get_pose();
+
         odom_msg.pose.pose.position.x = odom_tf_.getOrigin().x();
         odom_msg.pose.pose.position.y = odom_tf_.getOrigin().y();
         odom_msg.pose.pose.position.z = odom_tf_.getOrigin().z();
@@ -210,6 +212,9 @@ namespace easynav
             init_odom();
             return;
         }
+        
+        nav_msgs::msg::Odometry odom = get_odom();
+        nav_state.set("robot_pose", odom);
     }
 
     void DrainyLocalizer::update([[maybe_unused]] NavState & nav_state)

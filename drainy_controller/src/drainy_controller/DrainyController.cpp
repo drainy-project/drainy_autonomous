@@ -81,7 +81,7 @@ namespace easynav
 
         double eyaw = e_angle - robot_yaw;
 
-        double x_gain = 0.2;
+        double x_gain = 1.0;
         double y_gain = 0.2;
         double z_gain = 0.2;
         double yaw_gain = 0.1;
