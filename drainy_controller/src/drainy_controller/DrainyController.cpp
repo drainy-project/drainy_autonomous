@@ -13,8 +13,17 @@ namespace easynav
         auto node = get_node();
         const std::string & plugin_name = this->get_plugin_name();
 
-        RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());
+        node->declare_parameter(plugin_name + ".x_gain", x_gain_);
+        node->declare_parameter(plugin_name + ".y_gain", y_gain_);
+        node->declare_parameter(plugin_name + ".z_gain", z_gain_);
+        node->declare_parameter(plugin_name + ".yaw_gain", yaw_gain_);
 
+        node->get_parameter(plugin_name + ".x_gain", x_gain_);
+        node->get_parameter(plugin_name + ".y_gain", y_gain_);
+        node->get_parameter(plugin_name + ".z_gain", z_gain_);
+        node->get_parameter(plugin_name + ".yaw_gain", yaw_gain_);
+
+        RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());
 
     }
 
@@ -81,11 +90,6 @@ namespace easynav
 
         double eyaw = e_angle - robot_yaw;
 
-        double x_gain = 1.0;
-        double y_gain = 0.2;
-        double z_gain = 0.2;
-        double yaw_gain = 0.1;
-
         // RCLCPP_INFO(get_node()->get_logger(), "Error yaw:= %f", eyaw);
 
         // if (std::abs(eyaw) > 0.1) {
@@ -97,14 +101,18 @@ namespace easynav
         double vel_lineal_max = 1.0;
         double vel_angular_max = 1.0;
 
-        // RCLCPP_INFO(get_node()->get_logger(), "X vel := %f", ex*x_gain);
+        // RCLCPP_INFO(get_node()->get_logger(), "X vel := %f", ex*x_gain_);
 
         cmd_vel_.header.frame_id = path.header.frame_id;
         cmd_vel_.header.stamp = get_node()->now();
-        cmd_vel_.twist.linear.x = std::abs(ex*x_gain) > vel_lineal_max ? vel_lineal_max * std::abs(ex*x_gain)/ex*x_gain : ex*x_gain;
-        cmd_vel_.twist.linear.y = std::abs(ey*y_gain) > vel_lineal_max ? vel_lineal_max * std::abs(ey*y_gain)/ey*y_gain : ey*y_gain;
-        cmd_vel_.twist.linear.z = std::abs(ez*z_gain) > vel_lineal_max ? vel_lineal_max * std::abs(ez*z_gain)/ez*z_gain : ez*z_gain;
-        cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain) > vel_angular_max ? vel_angular_max * std::abs(eyaw*yaw_gain)/eyaw*yaw_gain : eyaw*yaw_gain;
+        if (ex*x_gain_ > 0) {
+            cmd_vel_.twist.linear.x = std::abs(ex*x_gain_) > vel_lineal_max ? vel_lineal_max * std::abs(ex*x_gain_)/ex*x_gain_ : ex*x_gain_;
+        } else {
+            cmd_vel_.twist.linear.x = 0.0;
+        }
+        cmd_vel_.twist.linear.y = std::abs(ey*y_gain_) > vel_lineal_max ? vel_lineal_max * std::abs(ey*y_gain_)/ey*y_gain_ : ey*y_gain_;
+        cmd_vel_.twist.linear.z = std::abs(ez*z_gain_) > vel_lineal_max ? vel_lineal_max * std::abs(ez*z_gain_)/ez*z_gain_ : ez*z_gain_;
+        cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max ? vel_angular_max * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
 
         nav_state.set("cmd_vel", cmd_vel_);
         

@@ -42,6 +42,13 @@ class DrainyController : public ControllerMethodBase
 
     geometry_msgs::msg::TwistStamped cmd_vel_;
 
+    private:
+
+    double x_gain_{1.0};
+    double y_gain_{0.5};
+    double z_gain_{0.5};
+    double yaw_gain_{0.5};
+
 };
 
 } // namespace easynav

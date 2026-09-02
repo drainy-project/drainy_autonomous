@@ -270,7 +270,15 @@ DrainyPlanner::a_star_path(
   std::reverse(path.begin(), path.end());
 
   if (path.empty()) {
-    path.push_back(goal);
+    /// TO DO - Quitar cuando tengamos el explorer
+    geometry_msgs::msg::Pose pose;
+    pose.position.x = goal.position.x;
+    pose.position.y = goal.position.y;
+    pose.position.z = start.position.z;
+    pose.orientation = goal.orientation;
+    /// 
+    path.push_back(pose);
+    // path.push_back(goal);
   }
 
   return path;

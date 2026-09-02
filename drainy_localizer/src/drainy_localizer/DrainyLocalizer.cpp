@@ -39,15 +39,15 @@ namespace easynav
 
         double x_init, y_init, z_init, yaw_init;
 
-        node->declare_parameter<double>(plugin_name + ".initial_pose.x", 0.0);
-        node->declare_parameter<double>(plugin_name + ".initial_pose.y", 0.0);
-        node->declare_parameter<double>(plugin_name + ".initial_pose.z", 0.0);
-        node->declare_parameter<double>(plugin_name + ".initial_pose.yaw", 0.0);
+        node->declare_parameter(plugin_name + ".initial_pose.x", x_init);
+        node->declare_parameter(plugin_name + ".initial_pose.y", y_init);
+        node->declare_parameter(plugin_name + ".initial_pose.z", z_init);
+        node->declare_parameter(plugin_name + ".initial_pose.yaw", yaw_init);
 
-        node->get_parameter<double>(plugin_name + ".initial_pose.x", x_init);
-        node->get_parameter<double>(plugin_name + ".initial_pose.y", y_init);
-        node->get_parameter<double>(plugin_name + ".initial_pose.z", z_init);
-        node->get_parameter<double>(plugin_name + ".initial_pose.yaw", yaw_init);
+        node->get_parameter(plugin_name + ".initial_pose.x", x_init);
+        node->get_parameter(plugin_name + ".initial_pose.y", y_init);
+        node->get_parameter(plugin_name + ".initial_pose.z", z_init);
+        node->get_parameter(plugin_name + ".initial_pose.yaw", yaw_init);
 
         RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());
 
