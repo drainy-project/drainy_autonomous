@@ -18,6 +18,12 @@
 namespace easynav
 {
 
+std::vector<std::pair<int, int>> mask_neighbors = {
+  {1, 1}, {1, 0}, {1, -1},
+  {0, 1}, {0, 0}, {0, -1},
+  {-1, 1}, {-1, 0}, {-1, -1}
+};
+
 DrainyMap::DrainyMap()
 : width_(0), height_(0), resolution_(1.0), origin_x_(0.0), origin_y_(0.0), data_()
 {}
@@ -38,27 +44,44 @@ DrainyMap::initialize(
 std::pair<double, double>
 DrainyMap::cell_to_metric(int x, int y) const
 {
-  double mx = origin_x_ + (static_cast<double>(x) + 0.5) * resolution_;
-  double my = origin_y_ + (static_cast<double>(y) + 0.5) * resolution_;
+  double mx = origin_x_ + (static_cast<double>(x) + 0.1) * resolution_;
+  double my = origin_y_ + (static_cast<double>(y) + 0.1) * resolution_;
   return {mx, my};
 }
 
 std::pair<int, int>
 DrainyMap::metric_to_cell(double mx, double my) const
 {
-  double relative_x = mx - origin_x_;
-  double relative_y = my - origin_y_;
+    double wx = mx - origin_x_;
+    double wy = my - origin_x_;
 
-  int x = static_cast<int>(relative_x / resolution_);
-  int y = static_cast<int>(relative_y / resolution_);
+    int x = static_cast<int>((wx) / resolution_);
+    int y = static_cast<int>((wy) / resolution_);
+
+  return {x, y};
+}
+
+std::pair<int, int>
+DrainyMap::world_metric_to_cell(double mx, double my) const
+{
+    double map_origin_x = origin_x_ - resolution_ * (width_ / 2);
+    double map_origin_y = origin_y_ - resolution_ * (height_ / 2);
+
+    double wx = mx - map_origin_x;
+    double wy = my - map_origin_y;
+
+    int x = static_cast<int>((wx) / resolution_);
+    int y = static_cast<int>((wy) / resolution_);
 
   return {x, y};
 }
 
 void
-DrainyMap::from_pc2(const sensor_msgs::msg::PointCloud2 msg)
+DrainyMap::from_pc2(const sensor_msgs::msg::PointCloud2 msg, 
+  geometry_msgs::msg::Pose pose,
+  double confidence_lenght)
 {
-  data_.assign(width_ * height_, -1);
+  //data_.assign(width_ * height_, -1);
   for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(msg, "x"),
       iter_y(msg, "y"), iter_z(msg, "z");
       iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
@@ -67,20 +90,33 @@ DrainyMap::from_pc2(const sensor_msgs::msg::PointCloud2 msg)
       continue;
     }
 
-    double map_origin_x = origin_x_ - resolution_ * (width_ / 2);
-    double map_origin_y = origin_y_ - resolution_ * (height_ / 2);
+    // double map_origin_x = origin_x_ - resolution_ * (width_ / 2);
+    // double map_origin_y = origin_y_ - resolution_ * (height_ / 2);
 
-    double wx = *iter_x - map_origin_x;
-    double wy = *iter_y - map_origin_y;
+    // double wx = *iter_x - map_origin_x;
+    // double wy = *iter_y - map_origin_y;
 
-    size_t gx = static_cast<int>((wx) / resolution_);
-    size_t gy = static_cast<int>((wy) / resolution_);
+    // size_t gx = static_cast<int>((wx) / resolution_);
+    // size_t gy = static_cast<int>((wy) / resolution_);
+
+    auto [gx, gy] = world_metric_to_cell(*iter_x, *iter_y);
 
     if ((gx < width_) && (gy < height_)) {
         int index = gy * width_ + gx;
-        data_[index] = 100; 
+        if (data_[index] != 0){
+          data_[index] = 100;
+        }
+        
     }
-
+  }
+  auto [px, py] = world_metric_to_cell(pose.position.x, pose.position.y);
+  for (int i = 0; i < static_cast<int>(confidence_lenght / resolution_); ++i){
+    for (auto [dx, dy] : mask_neighbors){
+      int x = px + dx * i;
+      int y = py + dy * i;
+      int index = y * width_ + x;
+      data_[index] = 0;
+    }
   }
 }
 

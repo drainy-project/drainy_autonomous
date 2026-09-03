@@ -26,6 +26,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/pose.hpp"
 
 #include "drainy_common/DrainyMap.hpp"
 
@@ -51,16 +52,18 @@ namespace easynav
 
         sensor_msgs::msg::PointCloud2 pc2_map_msg_;
         nav_msgs::msg::OccupancyGrid occ_map_msg_;
+        geometry_msgs::msg::Pose pose_;
 
         rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr occ_map_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_pub_;
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr incoming_pc2_map_sub_;
         rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr savemap_srv_;
 
-        double filter_min_ {0.75};
-        double filter_max_ {1.25};
+        double filter_min_ {0.95};
+        double filter_max_ {1.05};
         double resolution_{0.25};
         double max_lenght_{50};
+        double confidence_lenght_{1.0};
         double origin_x_{0.0};
         double origin_y_{0.0};
         bool map_set_{false};

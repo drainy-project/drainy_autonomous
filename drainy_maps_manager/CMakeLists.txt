@@ -15,6 +15,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(drainy_common REQUIRED)
@@ -36,6 +37,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   tf2_ros::tf2_ros
   pluginlib::pluginlib
   ${tf2_geometry_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   ${std_srvs_TARGETS}
   ${PCL_LIBRARIES}
@@ -82,6 +84,7 @@ ament_export_dependencies(
   pluginlib
   nav_msgs
   std_srvs
+  geometry_msgs
   Eigen3
   drainy_common
 )

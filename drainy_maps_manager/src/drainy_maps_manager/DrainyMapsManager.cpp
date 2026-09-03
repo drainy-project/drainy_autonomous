@@ -19,6 +19,7 @@ namespace easynav
         node->declare_parameter(plugin_name + ".filter_max", filter_max_);
         node->declare_parameter(plugin_name + ".max_lenght", max_lenght_);
         node->declare_parameter(plugin_name + ".resolution", resolution_);
+        node->declare_parameter(plugin_name + ".confidence_lenght", confidence_lenght_);
 
         node->get_parameter(plugin_name + ".map_path", map_path_);
         node->get_parameter(plugin_name + ".map_topic", map_topic_);
@@ -26,6 +27,7 @@ namespace easynav
         node->get_parameter(plugin_name + ".filter_max", filter_max_);
         node->get_parameter(plugin_name + ".max_lenght", max_lenght_);
         node->get_parameter(plugin_name + ".resolution", resolution_);
+        node->get_parameter(plugin_name + ".confidence_lenght", confidence_lenght_);
 
         drainy_map_.initialize(max_lenght_,max_lenght_,resolution_, origin_x_, origin_y_);
 
@@ -52,15 +54,17 @@ namespace easynav
                 pcl::PassThrough<pcl::PointXYZ> pass;
                 pass.setInputCloud(cloud);
                 pass.setFilterFieldName("z");
-                pass.setFilterLimits(static_cast<float>(filter_min_), 
-                    static_cast<float>(filter_max_));
+                double drone_altitude = pose_.position.z;
+                pass.setFilterLimits(
+                    static_cast<float>(drone_altitude * filter_min_),
+                    static_cast<float>(drone_altitude * filter_max_));
                 pass.filter(*cloud_filtered);
                 pcl::toROSMsg(*cloud_filtered, *msg);
                 msg->header.frame_id = tf_info.map_frame;
                 msg->header.stamp = pc2_map_msg_.header.stamp;
                 cloud_pub_->publish(*msg);
 
-                drainy_map_.from_pc2(*msg);
+                drainy_map_.from_pc2(*msg, pose_, confidence_lenght_);
                 drainy_map_.to_occupancy_grid(occ_map_msg_);
 
                 occ_map_msg_.header.frame_id = tf_info.map_frame;
@@ -76,7 +80,7 @@ namespace easynav
                 {
                 (void)request;
                 rclcpp::Time now = get_node()->now();
-                std::string now_str = std::to_string(now.nanoseconds());
+                std::string now_str = std::to_string(static_cast<int>(now.seconds()));
                 std::string tmp_pc2_map = map_path_ + "map_" + now_str + ".pcd";
 
                 pcl::PointCloud<pcl::PointXYZ> cloud;
@@ -91,6 +95,12 @@ namespace easynav
 
     void DrainyMapsManager::update(NavState & nav_state)
     {
+        if (nav_state.has("robot_pose")) {
+            const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
+            //drone_altitude_ = robot_pose.pose.pose.position.z;
+            pose_ = robot_pose.pose.pose;
+        }
+
         if (!nav_state.has("robot_pose") && map_set_) {
             RCLCPP_INFO(get_node()->get_logger(), "No Robot Pose. No Map Saved");
             return;

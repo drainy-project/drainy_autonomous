@@ -31,6 +31,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
+#include "geometry_msgs/msg/pose.hpp"
 
 namespace easynav
 {
@@ -44,7 +45,9 @@ public:
   void initialize(
     double m_width, double m_height, double resolution, double origin_x, double origin_y);
 
-  void from_pc2(const sensor_msgs::msg::PointCloud2 msg);
+  void from_pc2(const sensor_msgs::msg::PointCloud2 msg, 
+    geometry_msgs::msg::Pose pose,
+    double safe_lenght);
   /**
    * @brief Updates a nav_msgs::msg::OccupancyGrid message from the SimpleMap contents.
    *
@@ -73,14 +76,16 @@ public:
   
   std::pair<double, double> cell_to_metric(int x, int y) const;
   std::pair<int, int> metric_to_cell(double mx, double my) const;
+  std::pair<int, int> world_metric_to_cell(double mx, double my) const;
 
 private:
   size_t width_;
   size_t height_;
   double resolution_; // m / cell
-  double origin_x_;
-  double origin_y_;
+  double origin_x_; // m
+  double origin_y_; // m
   std::vector<uint8_t> data_;
+
 };
 
 }  // namespace easynav
