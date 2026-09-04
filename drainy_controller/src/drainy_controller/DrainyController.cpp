@@ -16,13 +16,11 @@ namespace easynav
         const std::string & plugin_name = this->get_plugin_name();
 
         node->declare_parameter(plugin_name + ".x_gain", x_gain_);
-        node->declare_parameter(plugin_name + ".y_gain", y_gain_);
         node->declare_parameter(plugin_name + ".z_gain", z_gain_);
         node->declare_parameter(plugin_name + ".yaw_gain", yaw_gain_);
         node->declare_parameter(plugin_name + ".safety_radius", safety_radius_);
 
         node->get_parameter(plugin_name + ".x_gain", x_gain_);
-        node->get_parameter(plugin_name + ".y_gain", y_gain_);
         node->get_parameter(plugin_name + ".z_gain", z_gain_);
         node->get_parameter(plugin_name + ".yaw_gain", yaw_gain_);
         node->get_parameter(plugin_name + ".safety_radius", safety_radius_);
@@ -85,14 +83,13 @@ namespace easynav
         nav_state.set("height", height);
 
         // If navigation is IDLE, force zero velocity
-        // con un gola constante no hay necesidad
+        // con un goal constante no hay necesidad
 
         if (nav_state.has("navigation_state")) {
             const auto nav_state_val = nav_state.get<easynav::GoalManager::State>("navigation_state");
             if (nav_state_val == easynav::GoalManager::State::IDLE) {
                 cmd_vel_.header.stamp = get_node()->now();
                 cmd_vel_.twist.linear.x = 0.0;
-                cmd_vel_.twist.linear.y = 0.0;
                 cmd_vel_.twist.linear.z = 0.0;
                 cmd_vel_.twist.angular.z = 0.0;
                 nav_state.set("cmd_vel", cmd_vel_);
@@ -106,7 +103,54 @@ namespace easynav
             cmd_vel_.header.frame_id = path.header.frame_id;
             cmd_vel_.header.stamp = get_node()->now();
             cmd_vel_.twist.linear.x = 0.0;
-            cmd_vel_.twist.linear.y = 0.0;
+            cmd_vel_.twist.linear.z = 0.0;
+            cmd_vel_.twist.angular.z = 0.0;
+            nav_state.set("cmd_vel", cmd_vel_);
+            return;
+        }
+
+        // Limits
+
+        if(std::abs(height) < safety_vertical_){
+            RCLCPP_WARN(get_node()->get_logger(), 
+                "Imminent Collision due to Narrow Height. Safety limit has been set := %lf",
+                height);
+            height = safety_vertical_;
+            nav_state.set("height", height);
+        }
+        
+        if(std::abs(min_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
+            RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z min level:= %lf", min_z[2]);
+            cmd_vel_.header.stamp = get_node()->now();
+            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.z = 0.0;
+            cmd_vel_.twist.angular.z = 0.0;
+            nav_state.set("cmd_vel", cmd_vel_);
+            return;
+        }
+        if(std::abs(max_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
+            RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z max level:= %lf", max_z[2]);
+            cmd_vel_.header.stamp = get_node()->now();
+            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.z = 0.0;
+            cmd_vel_.twist.angular.z = 0.0;
+            nav_state.set("cmd_vel", cmd_vel_);
+            return;
+        }
+
+        if(std::abs(min_xy[0]) < safety_radius_) {
+            RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in X := %lf", min_xy[0]);
+            cmd_vel_.header.stamp = get_node()->now();
+            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.z = 0.0;
+            cmd_vel_.twist.angular.z = 0.0;
+            nav_state.set("cmd_vel", cmd_vel_);
+            return;
+        }
+        if(std::abs(min_xy[1]) < safety_radius_) {
+            RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
+            cmd_vel_.header.stamp = get_node()->now();
+            cmd_vel_.twist.linear.x = 0.0;
             cmd_vel_.twist.linear.z = 0.0;
             cmd_vel_.twist.angular.z = 0.0;
             nav_state.set("cmd_vel", cmd_vel_);
@@ -114,6 +158,8 @@ namespace easynav
         }
 
         const auto & goal_pose = path.poses.back().pose;
+
+        // goal unreachabled
 
         double robot_roll, robot_pitch, robot_yaw;
         double goal_roll, goal_pitch, goal_yaw;
@@ -140,29 +186,23 @@ namespace easynav
 
         double eyaw = e_angle - robot_yaw; // revisar este calculo
 
-        // RCLCPP_INFO(get_node()->get_logger(), "Error yaw:= %f", eyaw);
-
-        // if (std::abs(eyaw) > 0.1) {
-        //     x_gain = 0;
-        //     y_gain = 0;
-        //     z_gain = 0;
-        // }
-
-        double vel_lineal_max = 1.0;
-        double vel_angular_max = 1.0;
+        if (std::abs(eyaw) > 0.5) {
+            RCLCPP_INFO(get_node()->get_logger(), "ex:= %lf ey:= %lf e_angle:= %lf robot_yaw:= %lf", 
+                ex, ey, e_angle, robot_yaw);
+            x_gain_ = 0;
+        }     
 
         // RCLCPP_INFO(get_node()->get_logger(), "X vel := %f", ex*x_gain_);
 
         cmd_vel_.header.frame_id = path.header.frame_id;
         cmd_vel_.header.stamp = get_node()->now();
         if (ex*x_gain_ > 0) {
-            cmd_vel_.twist.linear.x = std::abs(ex*x_gain_) > vel_lineal_max ? vel_lineal_max * std::abs(ex*x_gain_)/ex*x_gain_ : ex*x_gain_;
+            cmd_vel_.twist.linear.x = std::abs(ex*x_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ex*x_gain_)/ex*x_gain_ : ex*x_gain_;
         } else {
             cmd_vel_.twist.linear.x = 0.0;
         }
-        cmd_vel_.twist.linear.y = std::abs(ey*y_gain_) > vel_lineal_max ? vel_lineal_max * std::abs(ey*y_gain_)/ey*y_gain_ : ey*y_gain_;
-        cmd_vel_.twist.linear.z = std::abs(ez*z_gain_) > vel_lineal_max ? vel_lineal_max * std::abs(ez*z_gain_)/ez*z_gain_ : ez*z_gain_;
-        cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max ? vel_angular_max * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
+        cmd_vel_.twist.linear.z = std::abs(ez*z_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ez*z_gain_)/ez*z_gain_ : ez*z_gain_;
+        cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max_ ? vel_angular_max_ * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
 
         nav_state.set("cmd_vel", cmd_vel_);
         

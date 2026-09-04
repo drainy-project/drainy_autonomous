@@ -58,11 +58,13 @@ class DrainyController : public ControllerMethodBase
     private:
 
     double x_gain_{1.0};
-    double y_gain_{0.5};
-    double z_gain_{0.5};
-    double yaw_gain_{0.5};
+    double z_gain_{1.0};
+    double yaw_gain_{0.8};
     double detection_limit_{3.5}; // For realsense
     double safety_radius_{1.0};
+    double safety_vertical_{0.3};
+    double vel_lineal_max_{1.0};
+    double vel_angular_max_{1.0};
 
 };
 
