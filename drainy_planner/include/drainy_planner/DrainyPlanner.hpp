@@ -92,7 +92,8 @@ protected:
     const DrainyMap & map,
     const geometry_msgs::msg::Pose & start,
     const geometry_msgs::msg::Pose & goal,
-    double resolution);
+    double resolution,
+    double height);
 
   /**
    * @brief Checks whether a map cell is free, considering a clearance area.

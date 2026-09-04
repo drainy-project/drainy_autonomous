@@ -1,6 +1,8 @@
 #include "drainy_controller/DrainyController.hpp"
 
 
+
+
 namespace easynav
 {
     DrainyController::DrainyController(){}
@@ -17,11 +19,21 @@ namespace easynav
         node->declare_parameter(plugin_name + ".y_gain", y_gain_);
         node->declare_parameter(plugin_name + ".z_gain", z_gain_);
         node->declare_parameter(plugin_name + ".yaw_gain", yaw_gain_);
+        node->declare_parameter(plugin_name + ".safety_radius", safety_radius_);
 
         node->get_parameter(plugin_name + ".x_gain", x_gain_);
         node->get_parameter(plugin_name + ".y_gain", y_gain_);
         node->get_parameter(plugin_name + ".z_gain", z_gain_);
         node->get_parameter(plugin_name + ".yaw_gain", yaw_gain_);
+        node->get_parameter(plugin_name + ".safety_radius", safety_radius_);
+
+        cloud_h_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
+            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/cloud_detection/horizontal", 
+            rclcpp::QoS(1).transient_local().reliable());
+
+        cloud_v_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
+            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/cloud_detection/vertical", 
+            rclcpp::QoS(1).transient_local().reliable());
 
         RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());
 
@@ -29,28 +41,68 @@ namespace easynav
 
     void DrainyController::update_rt([[maybe_unused]] NavState & nav_state)
     {
-        // If navigation is IDLE, force zero velocity
-        if (nav_state.has("navigation_state")) {
-            const auto nav_state_val = nav_state.get<easynav::GoalManager::State>("navigation_state");
-            if (nav_state_val == easynav::GoalManager::State::IDLE) {
-            cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = 0.0;
-            cmd_vel_.twist.angular.z = 0.0;
-            nav_state.set("cmd_vel", cmd_vel_);
-            return;
-            }
-        }
-
         const auto & perceptions = nav_state.get_no_group<PointPerception>();
+
+        const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
 
         if (!nav_state.has("path") || !nav_state.has("robot_pose") || perceptions.empty()) {
             //RCLCPP_INFO(get_node()->get_logger(), "No Path, No Points or No Robot Pose");
             return;
         }
 
+        const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
+
+        const auto & filtered = PointPerceptionsOpsView(perceptions)
+            .filter({-detection_limit_, -detection_limit_, -0.1,},
+                {detection_limit_, detection_limit_, 0.1,})
+            .fuse(tf_info.map_frame)
+            .collapse({NAN, NAN, robot_pose.pose.pose.position.z})
+            .downsample(0.1)
+            .as_points();
+
+        Eigen::Vector4f min_xy, max_xy;
+        pcl::getMinMax3D(filtered, min_xy, max_xy);
+        pcl::toROSMsg(filtered, cloud_h_msg_);
+        cloud_h_msg_.header.frame_id = tf_info.map_frame;
+        cloud_h_msg_.header.stamp = get_node()->now();
+        cloud_h_pub_->publish(cloud_h_msg_);
+
+        const auto & z_filtered = PointPerceptionsOpsView(perceptions)
+            .filter({detection_limit_ - 0.5, - 0.5, -5.0,},
+                {detection_limit_ + 0.5, 0.5, 5.0,})
+            .fuse(tf_info.map_frame)
+            .downsample(0.1)
+            .as_points();
+
+        Eigen::Vector4f min_z, max_z;
+        pcl::getMinMax3D(z_filtered, min_z, max_z);
+        pcl::toROSMsg(z_filtered, cloud_v_msg_);
+        cloud_v_msg_.header.frame_id = tf_info.map_frame;
+        cloud_v_msg_.header.stamp = get_node()->now();
+        cloud_v_pub_->publish(cloud_v_msg_);
+
+        double height = (max_z[2] - min_z[2]) / 2.0; 
+        nav_state.set("height", height);
+
+        // If navigation is IDLE, force zero velocity
+        // con un gola constante no hay necesidad
+
+        if (nav_state.has("navigation_state")) {
+            const auto nav_state_val = nav_state.get<easynav::GoalManager::State>("navigation_state");
+            if (nav_state_val == easynav::GoalManager::State::IDLE) {
+                cmd_vel_.header.stamp = get_node()->now();
+                cmd_vel_.twist.linear.x = 0.0;
+                cmd_vel_.twist.linear.y = 0.0;
+                cmd_vel_.twist.linear.z = 0.0;
+                cmd_vel_.twist.angular.z = 0.0;
+                nav_state.set("cmd_vel", cmd_vel_);
+                return;
+            }
+        }
+
         nav_msgs::msg::Path path = nav_state.get<nav_msgs::msg::Path>("path");
         if (path.poses.empty()) {
-            RCLCPP_INFO(get_node()->get_logger(), "Path is empty, Vel will be zero.");
+            // RCLCPP_INFO(get_node()->get_logger(), "Path is empty, Vel will be zero.");
             cmd_vel_.header.frame_id = path.header.frame_id;
             cmd_vel_.header.stamp = get_node()->now();
             cmd_vel_.twist.linear.x = 0.0;
@@ -60,8 +112,6 @@ namespace easynav
             nav_state.set("cmd_vel", cmd_vel_);
             return;
         }
-
-        const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
 
         const auto & goal_pose = path.poses.back().pose;
 
@@ -88,7 +138,7 @@ namespace easynav
         double ez = goal_pose.position.z - robot_pose.pose.pose.position.z;
         double e_angle = std::atan2(ey,ex);
 
-        double eyaw = e_angle - robot_yaw;
+        double eyaw = e_angle - robot_yaw; // revisar este calculo
 
         // RCLCPP_INFO(get_node()->get_logger(), "Error yaw:= %f", eyaw);
 

@@ -17,11 +17,19 @@
 #include "tf2_ros/transform_broadcaster.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
+#include <pcl/io/pcd_io.h>
+#include <pcl/common/io.h>
+#include <pcl/common/common.h>
+#include <pcl/point_types.h>
+#include "pcl_conversions/pcl_conversions.h"
+#include "pcl/point_types_conversion.h"
+
 #include "geometry_msgs/msg/pose.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "sensor_msgs/msg/point_cloud2.hpp"
 
 namespace easynav
 {
@@ -41,6 +49,11 @@ class DrainyController : public ControllerMethodBase
     protected:
 
     geometry_msgs::msg::TwistStamped cmd_vel_;
+    sensor_msgs::msg::PointCloud2 cloud_h_msg_;
+    sensor_msgs::msg::PointCloud2 cloud_v_msg_;
+
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_h_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_v_pub_;
 
     private:
 
@@ -48,6 +61,8 @@ class DrainyController : public ControllerMethodBase
     double y_gain_{0.5};
     double z_gain_{0.5};
     double yaw_gain_{0.5};
+    double detection_limit_{3.5}; // For realsense
+    double safety_radius_{1.0};
 
 };
 

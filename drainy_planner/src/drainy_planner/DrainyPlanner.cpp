@@ -40,6 +40,20 @@ std::vector<std::pair<int, int>> neighbors8 = {
   {1, -1}, {1, 0}, {1, 1}
 };
 
+double get_height(const nav_msgs::msg::Path & path)
+{
+  double sum = 0.0;
+
+  if (path.poses.size() < 2) {
+    return 0.0;
+  }
+   
+  for (size_t i = 1; i < path.poses.size(); ++i) {
+    sum += path.poses[i].pose.position.z;
+  }
+  return (sum/path.poses.size());
+}
+
 double compute_path_length(const nav_msgs::msg::Path & path)
 {
   double total_length = 0.0;
@@ -69,7 +83,7 @@ DrainyPlanner::DrainyPlanner()
 
       ret << "{ " << rclcpp::Time(path.header.stamp).seconds() << " } Path with " <<
         path.poses.size() << " poses and length " <<
-        compute_path_length(path) << " m.";
+        compute_path_length(path) << " m. Avg height: " << get_height(path);
 
       return ret.str();
     });
@@ -122,6 +136,15 @@ DrainyPlanner::update(NavState & nav_state)
   const auto & goal = goals.goals.front().pose;
   const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
 
+  double map_height;
+
+  if (nav_state.has("height")){
+    map_height = nav_state.get<double>("height");
+  } else {
+    map_height = robot_pose.pose.pose.position.z;
+  }
+  
+
   const auto clock_type = get_node()->get_clock()->get_clock_type();
   rclcpp::Time latest_stamp(robot_pose.header.stamp, clock_type);
   if (rclcpp::Time(goals.goals.front().header.stamp,
@@ -146,7 +169,8 @@ DrainyPlanner::update(NavState & nav_state)
     map_typed,
     robot_pose.pose.pose,
     goal,
-    map_typed.resolution());
+    map_typed.resolution(),
+    map_height);
 
   if (!poses.empty()) {
     current_path_.header.stamp = latest_stamp;
@@ -197,7 +221,8 @@ DrainyPlanner::a_star_path(
   const DrainyMap & map,
   const geometry_msgs::msg::Pose & start,
   const geometry_msgs::msg::Pose & goal,
-  double resolution)
+  double resolution,
+  double map_height)
 {
   RCLCPP_DEBUG(get_node()->get_logger(), "Running A* ============");
   RCLCPP_DEBUG(get_node()->get_logger(), "Path from (%lf m, %lf m) ->  (%lf m, %lf m)",
@@ -257,7 +282,7 @@ DrainyPlanner::a_star_path(
     auto [px, py] = map.cell_to_metric(cx, cy);
     pose.position.x = px;
     pose.position.y = py;
-    pose.position.z = start.position.z;
+    pose.position.z = map_height;
     pose.orientation = goal.orientation;
 
     path.push_back(pose);
@@ -274,7 +299,7 @@ DrainyPlanner::a_star_path(
     geometry_msgs::msg::Pose pose;
     pose.position.x = goal.position.x;
     pose.position.y = goal.position.y;
-    pose.position.z = start.position.z;
+    pose.position.z = map_height;
     pose.orientation = goal.orientation;
     /// 
     path.push_back(pose);

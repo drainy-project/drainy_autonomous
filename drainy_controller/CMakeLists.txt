@@ -16,6 +16,8 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 
 
 add_library(${PROJECT_NAME} SHARED
@@ -25,6 +27,7 @@ add_library(${PROJECT_NAME} SHARED
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  ${PCL_INCLUDE_DIRS}
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC
   easynav_common::easynav_common
@@ -35,6 +38,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   pluginlib::pluginlib
   ${tf2_geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${PCL_LIBRARIES}
 )
 
 install(
@@ -75,5 +80,6 @@ ament_export_dependencies(
   tf2_ros
   pluginlib
   nav_msgs
+  sensor_msgs
 )
 ament_package()
