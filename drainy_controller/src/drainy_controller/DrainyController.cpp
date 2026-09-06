@@ -1,8 +1,5 @@
 #include "drainy_controller/DrainyController.hpp"
 
-
-
-
 namespace easynav
 {
     DrainyController::DrainyController(){}
@@ -16,11 +13,13 @@ namespace easynav
         const std::string & plugin_name = this->get_plugin_name();
 
         node->declare_parameter(plugin_name + ".x_gain", x_gain_);
+        node->declare_parameter(plugin_name + ".y_gain", y_gain_);
         node->declare_parameter(plugin_name + ".z_gain", z_gain_);
         node->declare_parameter(plugin_name + ".yaw_gain", yaw_gain_);
         node->declare_parameter(plugin_name + ".safety_radius", safety_radius_);
 
         node->get_parameter(plugin_name + ".x_gain", x_gain_);
+        node->get_parameter(plugin_name + ".y_gain", y_gain_);
         node->get_parameter(plugin_name + ".z_gain", z_gain_);
         node->get_parameter(plugin_name + ".yaw_gain", yaw_gain_);
         node->get_parameter(plugin_name + ".safety_radius", safety_radius_);
@@ -79,7 +78,7 @@ namespace easynav
         cloud_v_msg_.header.stamp = get_node()->now();
         cloud_v_pub_->publish(cloud_v_msg_);
 
-        double height = (max_z[2] - min_z[2]) / 2.0; 
+        double height = min_z[2] + (max_z[2] - min_z[2]) / 2.0; 
         nav_state.set("height", height);
 
         // If navigation is IDLE, force zero velocity
@@ -122,18 +121,18 @@ namespace easynav
         if(std::abs(min_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z min level:= %lf", min_z[2]);
             cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.x = -0.1;
             cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = 0.0;
+            cmd_vel_.twist.angular.z = 0.2;
             nav_state.set("cmd_vel", cmd_vel_);
             return;
         }
         if(std::abs(max_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z max level:= %lf", max_z[2]);
             cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.x = -0.1;
             cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = 0.0;
+            cmd_vel_.twist.angular.z = -0.2;
             nav_state.set("cmd_vel", cmd_vel_);
             return;
         }
@@ -141,16 +140,27 @@ namespace easynav
         if(std::abs(min_xy[0]) < safety_radius_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in X := %lf", min_xy[0]);
             cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.x = -0.1;
             cmd_vel_.twist.linear.z = 0.0;
             cmd_vel_.twist.angular.z = 0.0;
             nav_state.set("cmd_vel", cmd_vel_);
             return;
         }
-        if(std::abs(min_xy[1]) < safety_radius_) {
+        if(0 < min_xy[1] && min_xy[1] < safety_radius_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
             cmd_vel_.header.stamp = get_node()->now();
             cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.y = -0.2;
+            cmd_vel_.twist.linear.z = 0.0;
+            cmd_vel_.twist.angular.z = 0.0;
+            nav_state.set("cmd_vel", cmd_vel_);
+            return;
+        }
+        if(-safety_radius_ < min_xy[1] && min_xy[1] < 0.0) {
+            RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
+            cmd_vel_.header.stamp = get_node()->now();
+            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.y = 0.2;
             cmd_vel_.twist.linear.z = 0.0;
             cmd_vel_.twist.angular.z = 0.0;
             nav_state.set("cmd_vel", cmd_vel_);
@@ -179,33 +189,49 @@ namespace easynav
         tf2::Matrix3x3 goal_m(goal_q);
         goal_m.getRPY(goal_roll, goal_pitch, goal_yaw);
 
-        double ex = goal_pose.position.x - robot_pose.pose.pose.position.x;
-        double ey = goal_pose.position.y - robot_pose.pose.pose.position.y;
+        // double ex_global = goal_pose.position.x - robot_pose.pose.pose.position.x;
+        // double ey_global = goal_pose.position.y - robot_pose.pose.pose.position.y;
+        // double ez_global = goal_pose.position.z - robot_pose.pose.pose.position.z;
+        // tf2::Vector3 error_global(ex_global, ey_global, ez_global);
+        // tf2::Vector3 error = robot_m.inverse() * error_global;
+        // double ex = error[0];
+        // double ey = error[1];
+        // double ez = error[2];
+
+        double ex_global = goal_pose.position.x - robot_pose.pose.pose.position.x;
+        double ey_global = goal_pose.position.y - robot_pose.pose.pose.position.y;
         double ez = goal_pose.position.z - robot_pose.pose.pose.position.z;
-        double e_angle = std::atan2(ey,ex);
 
-        double eyaw = e_angle - robot_yaw; // revisar este calculo
+        double e_angle = std::atan2(ey_global, ex_global);   
 
-        if (std::abs(eyaw) > 0.5) {
+        double eyaw = e_angle - robot_yaw; 
+        double ex = ex_global * std::cos(e_angle) + ey_global * std::sin(e_angle);
+        double ey = -ex_global * std::sin(e_angle) + ey_global * std::cos(e_angle);
+        
+        if( std::hypot(ex, ey) < convergence_limit_) {
+            RCLCPP_INFO(get_node()->get_logger(), "Goal is near at %lf", std::hypot(ex, ey));
+            eyaw = goal_yaw - robot_yaw;
+        }
+
+        if (std::abs(eyaw) > yaw_limit_ ) {
             RCLCPP_INFO(get_node()->get_logger(), "ex:= %lf ey:= %lf e_angle:= %lf robot_yaw:= %lf", 
                 ex, ey, e_angle, robot_yaw);
-            x_gain_ = 0;
-        }     
-
-        // RCLCPP_INFO(get_node()->get_logger(), "X vel := %f", ex*x_gain_);
+            cmd_vel_.header.stamp = get_node()->now();
+            cmd_vel_.twist.linear.x = 0.0;
+            cmd_vel_.twist.linear.y = 0.0;
+            cmd_vel_.twist.linear.z = 0.0;
+            cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max_ ? vel_angular_max_ * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
+            nav_state.set("cmd_vel", cmd_vel_);
+            return;
+        }    
 
         cmd_vel_.header.frame_id = path.header.frame_id;
         cmd_vel_.header.stamp = get_node()->now();
-        if (ex*x_gain_ > 0) {
-            cmd_vel_.twist.linear.x = std::abs(ex*x_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ex*x_gain_)/ex*x_gain_ : ex*x_gain_;
-        } else {
-            cmd_vel_.twist.linear.x = 0.0;
-        }
+        cmd_vel_.twist.linear.x = std::abs(ex*x_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ex*x_gain_)/ex*x_gain_ : ex*x_gain_;
+        cmd_vel_.twist.linear.y = std::abs(ey*y_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ey*y_gain_)/ey*y_gain_ : ey*y_gain_;
         cmd_vel_.twist.linear.z = std::abs(ez*z_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ez*z_gain_)/ez*z_gain_ : ez*z_gain_;
         cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max_ ? vel_angular_max_ * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
-
         nav_state.set("cmd_vel", cmd_vel_);
-        
     }
 
 } // namespace easynav
