@@ -110,6 +110,10 @@ namespace easynav
 
         // Limits
 
+        double x_offset = 0.0;
+        double y_offset = 0.0;
+        double z_offset = 0.0;
+
         if(std::abs(height) < safety_vertical_){
             RCLCPP_WARN(get_node()->get_logger(), 
                 "Imminent Collision due to Narrow Height. Safety limit has been set := %lf",
@@ -120,117 +124,103 @@ namespace easynav
         
         if(std::abs(min_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z min level:= %lf", min_z[2]);
-            cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = -0.1;
-            cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = 0.2;
-            nav_state.set("cmd_vel", cmd_vel_);
-            return;
+            z_offset = 0.5;
         }
         if(std::abs(max_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z max level:= %lf", max_z[2]);
-            cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = -0.1;
-            cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = -0.2;
-            nav_state.set("cmd_vel", cmd_vel_);
-            return;
+            z_offset = -0.5;
         }
 
         if(std::abs(min_xy[0]) < safety_radius_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in X := %lf", min_xy[0]);
-            cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = -0.1;
-            cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = 0.0;
-            nav_state.set("cmd_vel", cmd_vel_);
-            return;
+            x_offset = -0.5;
         }
         if(0 < min_xy[1] && min_xy[1] < safety_radius_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
-            cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = 0.0;
-            cmd_vel_.twist.linear.y = -0.2;
-            cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = 0.0;
-            nav_state.set("cmd_vel", cmd_vel_);
-            return;
+            x_offset = -0.5;
+            y_offset = -0.2;
         }
         if(-safety_radius_ < min_xy[1] && min_xy[1] < 0.0) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
-            cmd_vel_.header.stamp = get_node()->now();
-            cmd_vel_.twist.linear.x = 0.0;
-            cmd_vel_.twist.linear.y = 0.2;
-            cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = 0.0;
-            nav_state.set("cmd_vel", cmd_vel_);
-            return;
+            x_offset = -0.5;
+            y_offset = 0.2;
         }
 
         const auto & goal_pose = path.poses.back().pose;
 
         // goal unreachabled
 
-        double robot_roll, robot_pitch, robot_yaw;
-        double goal_roll, goal_pitch, goal_yaw;
         tf2::Quaternion robot_q(
             robot_pose.pose.pose.orientation.x,
             robot_pose.pose.pose.orientation.y,
             robot_pose.pose.pose.orientation.z,
             robot_pose.pose.pose.orientation.w);
-        tf2::Matrix3x3 robot_m(robot_q);
-        robot_m.getRPY(robot_roll, robot_pitch, robot_yaw);
+        double robot_yaw = tf2::getYaw(robot_q);
 
         tf2::Quaternion goal_q(
             goal_pose.orientation.x,
             goal_pose.orientation.y,
             goal_pose.orientation.z,
             goal_pose.orientation.w);
-        tf2::Matrix3x3 goal_m(goal_q);
-        goal_m.getRPY(goal_roll, goal_pitch, goal_yaw);
+        double goal_yaw = tf2::getYaw(goal_q);
 
-        // double ex_global = goal_pose.position.x - robot_pose.pose.pose.position.x;
-        // double ey_global = goal_pose.position.y - robot_pose.pose.pose.position.y;
-        // double ez_global = goal_pose.position.z - robot_pose.pose.pose.position.z;
-        // tf2::Vector3 error_global(ex_global, ey_global, ez_global);
-        // tf2::Vector3 error = robot_m.inverse() * error_global;
-        // double ex = error[0];
-        // double ey = error[1];
-        // double ez = error[2];
-
-        double ex_global = goal_pose.position.x - robot_pose.pose.pose.position.x;
-        double ey_global = goal_pose.position.y - robot_pose.pose.pose.position.y;
+        double ex = goal_pose.position.x - robot_pose.pose.pose.position.x;
+        double ey = goal_pose.position.y - robot_pose.pose.pose.position.y;
         double ez = goal_pose.position.z - robot_pose.pose.pose.position.z;
 
-        double e_angle = std::atan2(ey_global, ex_global);   
-
-        double eyaw = e_angle - robot_yaw; 
-        double ex = ex_global * std::cos(e_angle) + ey_global * std::sin(e_angle);
-        double ey = -ex_global * std::sin(e_angle) + ey_global * std::cos(e_angle);
+        double ey_medio = 0.0;
         
-        if( std::hypot(ex, ey) < convergence_limit_) {
-            RCLCPP_INFO(get_node()->get_logger(), "Goal is near at %lf", std::hypot(ex, ey));
+        if(std::isfinite(min_xy[1]) && std::isfinite(max_xy[1])){
+            ey_medio = ((std::abs(min_xy[1]) - std::abs(max_xy[1])) / 2.0);
+        }
+
+        double e_angle = std::atan2(ey, ex);   
+
+        double distance = std::hypot(ex, ey);
+
+        // Always use the shortest rotation direction.
+        double eyaw = std::atan2(std::sin(e_angle - robot_yaw),
+                      std::cos(e_angle - robot_yaw));
+
+        
+        if( distance < convergence_limit_) {
+            RCLCPP_DEBUG(get_node()->get_logger(), "Goal is near at %lf", distance);
             eyaw = goal_yaw - robot_yaw;
+            x_offset = -0.1*distance;
+            y_offset = -0.5*ey_medio;
         }
 
         if (std::abs(eyaw) > yaw_limit_ ) {
-            RCLCPP_INFO(get_node()->get_logger(), "ex:= %lf ey:= %lf e_angle:= %lf robot_yaw:= %lf", 
-                ex, ey, e_angle, robot_yaw);
+            RCLCPP_DEBUG(get_node()->get_logger(), "Angle error too big:= %lf", eyaw);
             cmd_vel_.header.stamp = get_node()->now();
             cmd_vel_.twist.linear.x = 0.0;
             cmd_vel_.twist.linear.y = 0.0;
             cmd_vel_.twist.linear.z = 0.0;
-            cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max_ ? vel_angular_max_ * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
+            const double angular_velocity = eyaw * yaw_gain_;
+            cmd_vel_.twist.angular.z = std::clamp(angular_velocity,
+                                                  -vel_angular_max_,
+                                                  vel_angular_max_);
             nav_state.set("cmd_vel", cmd_vel_);
             return;
         }    
 
+        // The robot only advances after its heading is within yaw_limit_.
+        // Drive straight toward the point in the robot X direction.
         cmd_vel_.header.frame_id = path.header.frame_id;
         cmd_vel_.header.stamp = get_node()->now();
-        cmd_vel_.twist.linear.x = std::abs(ex*x_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ex*x_gain_)/ex*x_gain_ : ex*x_gain_;
-        cmd_vel_.twist.linear.y = std::abs(ey*y_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ey*y_gain_)/ey*y_gain_ : ey*y_gain_;
-        cmd_vel_.twist.linear.z = std::abs(ez*z_gain_) > vel_lineal_max_ ? vel_lineal_max_ * std::abs(ez*z_gain_)/ez*z_gain_ : ez*z_gain_;
-        cmd_vel_.twist.angular.z = std::abs(eyaw*yaw_gain_) > vel_angular_max_ ? vel_angular_max_ * std::abs(eyaw*yaw_gain_)/eyaw*yaw_gain_ : eyaw*yaw_gain_;
+        cmd_vel_.twist.linear.x = std::clamp(distance * x_gain_ + x_offset,
+                                             -vel_lineal_max_,
+                                             vel_lineal_max_);
+        cmd_vel_.twist.linear.y = std::clamp(ey_medio * y_gain_ + y_offset,
+                                             -vel_lineal_max_,
+                                             vel_lineal_max_);
+        cmd_vel_.twist.linear.z = std::clamp(ez * z_gain_ + z_offset,
+                                        -vel_lineal_max_,
+                                        vel_lineal_max_);
+        const double angular_velocity = eyaw * yaw_gain_;
+        cmd_vel_.twist.angular.z = std::clamp(angular_velocity,
+                                                -vel_angular_max_,
+                                                vel_angular_max_);
         nav_state.set("cmd_vel", cmd_vel_);
     }
 

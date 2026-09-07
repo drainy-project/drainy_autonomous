@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/qos.hpp"
@@ -13,6 +14,7 @@
 #include "easynav_system/GoalManager.hpp"
 #include "easynav_sensors/types/PointPerception.hpp"
 
+#include "tf2/utils.hpp"
 #include "tf2/LinearMath/Transform.hpp"
 #include "tf2_ros/transform_broadcaster.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
@@ -64,8 +66,8 @@ class DrainyController : public ControllerMethodBase
     double detection_limit_{3.5}; // For realsense
     double safety_radius_{1.0};
     double safety_vertical_{0.3};
-    double vel_lineal_max_{1.0};
-    double vel_angular_max_{0.5};
+    double vel_lineal_max_{0.5};
+    double vel_angular_max_{1.0};
     double yaw_limit_{0.1};
     double convergence_limit_{2.0};
 
