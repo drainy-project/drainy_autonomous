@@ -43,7 +43,7 @@ namespace easynav
         const auto & tf_info = RTTFBuffer::getInstance()->get_tf_info();
 
         if (!nav_state.has("path") || !nav_state.has("robot_pose") || perceptions.empty()) {
-            //RCLCPP_INFO(get_node()->get_logger(), "No Path, No Points or No Robot Pose");
+            RCLCPP_DEBUG(get_node()->get_logger(), "No Path, No Points or No Robot Pose");
             return;
         }
 
@@ -138,12 +138,12 @@ namespace easynav
         if(0 < min_xy[1] && min_xy[1] < safety_radius_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
             x_offset = -0.5;
-            y_offset = -0.2;
+            y_offset = -0.5;
         }
         if(-safety_radius_ < min_xy[1] && min_xy[1] < 0.0) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Y := %lf", min_xy[1]);
             x_offset = -0.5;
-            y_offset = 0.2;
+            y_offset = 0.5;
         }
 
         const auto & goal_pose = path.poses.back().pose;
@@ -167,11 +167,9 @@ namespace easynav
         double ex = goal_pose.position.x - robot_pose.pose.pose.position.x;
         double ey = goal_pose.position.y - robot_pose.pose.pose.position.y;
         double ez = goal_pose.position.z - robot_pose.pose.pose.position.z;
-
-        double ey_medio = 0.0;
         
         if(std::isfinite(min_xy[1]) && std::isfinite(max_xy[1])){
-            ey_medio = ((std::abs(min_xy[1]) - std::abs(max_xy[1])) / 2.0);
+            ey_medio_ = ((std::abs(max_xy[1]) - std::abs(min_xy[1])) / 2.0) - robot_pose.pose.pose.position.y; 
         }
 
         double e_angle = std::atan2(ey, ex);   
@@ -184,14 +182,14 @@ namespace easynav
 
         
         if( distance < convergence_limit_) {
-            RCLCPP_DEBUG(get_node()->get_logger(), "Goal is near at %lf", distance);
+            RCLCPP_INFO(get_node()->get_logger(), "Goal is near at %lf", distance);
             eyaw = goal_yaw - robot_yaw;
             x_offset = -0.1*distance;
-            y_offset = -0.5*ey_medio;
+            y_offset = -0.5*ey_medio_;
         }
 
         if (std::abs(eyaw) > yaw_limit_ ) {
-            RCLCPP_DEBUG(get_node()->get_logger(), "Angle error too big:= %lf", eyaw);
+            RCLCPP_INFO(get_node()->get_logger(), "Angle error too big:= %lf", eyaw);
             cmd_vel_.header.stamp = get_node()->now();
             cmd_vel_.twist.linear.x = 0.0;
             cmd_vel_.twist.linear.y = 0.0;
@@ -211,7 +209,7 @@ namespace easynav
         cmd_vel_.twist.linear.x = std::clamp(distance * x_gain_ + x_offset,
                                              -vel_lineal_max_,
                                              vel_lineal_max_);
-        cmd_vel_.twist.linear.y = std::clamp(ey_medio * y_gain_ + y_offset,
+        cmd_vel_.twist.linear.y = std::clamp(ey_medio_ * y_gain_ + y_offset,
                                              -vel_lineal_max_,
                                              vel_lineal_max_);
         cmd_vel_.twist.linear.z = std::clamp(ez * z_gain_ + z_offset,

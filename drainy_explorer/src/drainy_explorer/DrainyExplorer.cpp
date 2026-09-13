@@ -3,7 +3,7 @@
 namespace easynav
 {
   DrainyExplorer::DrainyExplorer(const rclcpp::NodeOptions & options)
-  : Node("EXPLORING_node", options)
+  : Node("Exploring_node", options)
   {
     timer_ = create_timer(
           100ms,
@@ -42,11 +42,19 @@ namespace easynav
 
           nav_msgs::msg::Goals single_goal;
           single_goal.header = goals_.header;
-          single_goal.goals.push_back(goals_.goals[0]);
+          ////////////
+          geometry_msgs::msg::PoseStamped goal;
+          goal.header = single_goal.header;
+          goal.pose.position.x = 20.0;
+          goal.pose.position.y = 0.0;
+          ///////////
+          single_goal.goals.push_back(goal); // poner aqui esse valor
+  
           // while (gm_client_->get_state() != GoalManagerClient::State::IDLE)
           // {
           //   gm_client_->reset(); // Ensure the client is idle before sending new goals
           // }
+
           gm_client_->send_goals(single_goal);
           RCLCPP_INFO(get_logger(), "Goals sent");
           state_ = ExplorerState::EXPLORING;

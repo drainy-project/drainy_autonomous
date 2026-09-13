@@ -97,8 +97,11 @@ DrainyPlanner::on_initialize()
 
   node->declare_parameter<double>(plugin_name + ".robot_radius", 0.3);
   node->declare_parameter<double>(plugin_name + ".clearance_distance", 0.2);
+  node->declare_parameter<bool>(plugin_name + ".replanning", false);
+
   node->get_parameter<double>(plugin_name + ".robot_radius", robot_radius_);
   node->get_parameter<double>(plugin_name + ".clearance_distance", clearance_distance_);
+  node->get_parameter<bool>(plugin_name + ".replanning", replanning_);
 
   path_pub_ = get_node()->create_publisher<nav_msgs::msg::Path>(
     node->get_fully_qualified_name() + std::string("/") + plugin_name + "/path", 10);
@@ -164,31 +167,31 @@ DrainyPlanner::update(NavState & nav_state)
   //     "DrainyPlanner::update goal (%lf, %lf) outside the map", goal.position.x, goal.position.y);
   //   return;
   // }
+  std::vector<geometry_msgs::msg::Pose> poses;
 
-  auto poses = a_star_path(
-    map_typed,
-    robot_pose.pose.pose,
-    goal,
-    map_typed.resolution(),
-    map_height);
+    poses = a_star_path(
+      map_typed,
+      robot_pose.pose.pose,
+      goal,
+      map_typed.resolution(),
+      map_height);
+    if (!poses.empty()) {
+      current_path_.header.stamp = latest_stamp;
+      current_path_.header.frame_id = goals.header.frame_id;
 
-  if (!poses.empty()) {
-    current_path_.header.stamp = latest_stamp;
-    current_path_.header.frame_id = goals.header.frame_id;
+      for (const auto & pose : poses) {
+        geometry_msgs::msg::PoseStamped pose_stamped;
+        pose_stamped.header.frame_id = goals.header.frame_id;
+        pose_stamped.header.stamp = latest_stamp;
+        pose_stamped.pose = pose;
+        current_path_.poses.push_back(pose_stamped);
+      }
 
-    for (const auto & pose : poses) {
-      geometry_msgs::msg::PoseStamped pose_stamped;
-      pose_stamped.header.frame_id = goals.header.frame_id;
-      pose_stamped.header.stamp = latest_stamp;
-      pose_stamped.pose = pose;
-      current_path_.poses.push_back(pose_stamped);
+
+      if (path_pub_->get_subscription_count() > 0) {
+        path_pub_->publish(current_path_);
+      }
     }
-
-    if (path_pub_->get_subscription_count() > 0) {
-      path_pub_->publish(current_path_);
-    }
-  }
-
   nav_state.set("path", current_path_);
 }
 

@@ -70,6 +70,7 @@ class DrainyController : public ControllerMethodBase
     double vel_angular_max_{1.0};
     double yaw_limit_{0.1};
     double convergence_limit_{2.0};
+    double ey_medio_{0.0};
 
 };
 

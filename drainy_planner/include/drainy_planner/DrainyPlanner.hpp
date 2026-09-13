@@ -71,6 +71,7 @@ public:
   void update(NavState & nav_state) override;
 
 protected:
+  bool replanning_{false};
   double robot_radius_;        ///< Radius of the robot used for collision checking.
   double clearance_distance_;  ///< Minimum clearance distance from obstacles in meters.
 
