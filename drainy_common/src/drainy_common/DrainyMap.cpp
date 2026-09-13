@@ -145,6 +145,25 @@ DrainyMap::to_occupancy_grid(nav_msgs::msg::OccupancyGrid & grid_msg) const
 }
 
 void
+DrainyMap::from_occupancy_grid(const nav_msgs::msg::OccupancyGrid & grid_msg)
+{
+  initialize(
+    grid_msg.info.width,
+    grid_msg.info.height,
+    grid_msg.info.resolution,
+    grid_msg.info.origin.position.x + grid_msg.info.resolution * (grid_msg.info.width / 2),
+    grid_msg.info.origin.position.y + grid_msg.info.resolution * (grid_msg.info.height / 2));
+
+  for (size_t y = 0; y < height_; ++y) {
+    for (size_t x = 0; x < width_; ++x) {
+      size_t idx = y * width_ + x;
+      int8_t val = grid_msg.data[idx];
+      data_[idx] = val;
+    }
+  }
+}
+
+void
 DrainyMap::print(bool view_data) const
 {
   std::cerr << "===== DrainyMap Metadata: =====\n";
