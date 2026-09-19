@@ -8,6 +8,139 @@ namespace easynav
     timer_ = create_timer(
           100ms,
           std::bind(&DrainyExplorer::cycle, this));
+
+    incoming_map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
+          "/maps_manager_node/drainy/map",
+          rclcpp::QoS(100),
+          [&](nav_msgs::msg::OccupancyGrid::ConstSharedPtr raw_msg) {
+            drainy_map_.from_occupancy_grid(*raw_msg);
+            }
+          );
+           
+    incoming_control_sub_ = create_subscription<easynav_interfaces::msg::NavigationControl>(
+        "/easynav_control",
+        rclcpp::QoS(100),
+        [&](easynav_interfaces::msg::NavigationControl raw_msg) {
+          current_pose_.pose = raw_msg.current_pose.pose;
+          }
+        );    
+
+  }
+
+  void
+  DrainyExplorer::set_home()
+  {
+    current_home_.header.frame_id = frame_id_;
+    current_home_.pose.position.x = current_pose_.pose.position.x;
+    current_home_.pose.position.y = current_pose_.pose.position.y;
+    current_home_.pose.orientation = current_pose_.pose.orientation;
+    RCLCPP_INFO(get_logger(), "Home position was defined at X:= %lf Y:= %lf", 
+          current_home_.pose.position.x,
+          current_home_.pose.position.y);
+  }
+
+  bool
+  DrainyExplorer::find_goal()
+  {
+    auto width = drainy_map_.width();
+    if (width < 1)
+    {
+      RCLCPP_INFO(get_logger(), "The map is not available");
+      return false;
+    }
+    std::vector<double> goal{0.0, 0.0, 0.0};
+    bool solved = false;
+
+    auto [px, py] = drainy_map_.world_metric_to_cell( 
+            current_pose_.pose.position.x, current_pose_.pose.position.y);
+    
+    for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+    {
+      int x = px + i;
+      int y = py;
+      int index = y * width + x;
+      if (drainy_map_.get_data(index) == 100)
+      {
+        auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+        goal[0] = gx;
+        goal[1] = gy;
+        goal[2] = tf2::getYaw(current_pose_.pose.orientation);
+        solved = true;
+        break;
+      }
+    }
+    if(!solved)
+    {
+      for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+      {
+        int x = px;
+        int y = py + i;
+        int index = y * width + x;
+        if (drainy_map_.get_data(index) == 100)
+        {
+          auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+          goal[0] = gx;
+          goal[1] = gy;
+          goal[2] = tf2::getYaw(current_pose_.pose.orientation) + (M_PI / 2.0);
+          solved = true;
+          break;
+        }
+      }
+    }
+    if(!solved)
+    {
+      for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+      {
+        int x = px;
+        int y = py - i;
+        int index = y * width + x;
+        if(index < 0){break;}
+        if (drainy_map_.get_data(index) == 100)
+        {
+          auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+          goal[0] = gx;
+          goal[1] = gy;
+          goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI / 2.0);
+          solved = true;
+          break;
+        }
+      }
+    }
+    if(!solved)
+    {
+      for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+      {
+        int x = px - i;
+        int y = py;
+        int index = y * width + x;
+        if(index < 0){break;}
+        if (drainy_map_.get_data(index) == 100)
+        {
+          auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+          goal[0] = gx;
+          goal[1] = gy;
+          goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI);
+          solved = true;
+          break;
+        }
+      }
+    }
+    
+    if (solved)
+    {
+      geometry_msgs::msg::PoseStamped goal_pose;
+      goal_pose.header.frame_id = frame_id_;
+      goal_pose.pose.position.x = goal[0];
+      goal_pose.pose.position.y = goal[1];
+      goal_pose.pose.orientation = setYaw(goal[2]);
+      goals_.goals.push_back(goal_pose);
+      gm_client_->send_goals(goals_);
+      RCLCPP_INFO(get_logger(), "Goal sent at X:= %lf Y:= %lf", goal[0], goal[1]);
+      return solved;
+    } else {
+      RCLCPP_INFO(get_logger(), "No Goals availables");
+      return solved;
+    }
   }
 
   void
@@ -16,15 +149,8 @@ namespace easynav
 
     goals_.header.frame_id = frame_id_;
 
-      std::vector<double> wp_coord{0.0, 0.0, 0.0};
+    set_home();
 
-      geometry_msgs::msg::PoseStamped wp_pose;
-      wp_pose.header.frame_id = frame_id_;
-      wp_pose.pose.position.x = wp_coord[0];
-      wp_pose.pose.position.y = wp_coord[1];
-      wp_pose.pose.orientation = setYaw(wp_coord[2]);
-
-      goals_.goals.push_back(wp_pose);
   }
 
   void
@@ -40,30 +166,18 @@ namespace easynav
             initialized_ = true;
           }
 
-          nav_msgs::msg::Goals single_goal;
-          single_goal.header = goals_.header;
-          ////////////
-          geometry_msgs::msg::PoseStamped goal;
-          goal.header = single_goal.header;
-          goal.pose.position.x = 20.0;
-          goal.pose.position.y = 0.0;
-          ///////////
-          single_goal.goals.push_back(goal); // poner aqui esse valor
-  
-          // while (gm_client_->get_state() != GoalManagerClient::State::IDLE)
-          // {
-          //   gm_client_->reset(); // Ensure the client is idle before sending new goals
-          // }
+          // TO DO service in IDLE state to decide
 
-          gm_client_->send_goals(single_goal);
-          RCLCPP_INFO(get_logger(), "Goals sent");
-          state_ = ExplorerState::EXPLORING;
+          if (find_goal() && !completed_){
+            RCLCPP_INFO(get_logger(), "Exploration has been activated");
+            state_ = ExplorerState::EXPLORING;
+          }
+          
         }
         break;
 
       case ExplorerState::EXPLORING:
         {
-          int current_goal_index_ = 0; //cambiar a heuristica
           auto nav_state = gm_client_->get_state();
           switch (nav_state) {
             case GoalManagerClient::State::SENT_GOAL:
@@ -98,9 +212,6 @@ namespace easynav
                       gm_client_->get_result().status_message.c_str());
 
               pause_start_time_ = now();
-              RCLCPP_INFO(get_logger(), "Waiting time started at waypoint %u",
-              current_goal_index_ + 1);
-
               state_ = ExplorerState::DO_AT_WAYPOINT;
               break;
             case GoalManagerClient::State::ACCEPTED_AND_NAVIGATING:
@@ -112,31 +223,22 @@ namespace easynav
         break;
 
       case ExplorerState::DO_AT_WAYPOINT:
-        // DONE: 
-        {
-          int current_goal_index_ = 0; //cambiar a heuristica
-          if (now() - pause_start_time_ >= pause_duration_) {
-            RCLCPP_INFO(get_logger(), "Waiting time ended at waypoint %u", current_goal_index_ + 1);
-
-            // advance to next waypoint
-            
-            if (current_goal_index_ < goals_.goals.size()) {
-              RCLCPP_INFO(get_logger(), "Navigating to waypoint %u", current_goal_index_ + 1);
-              gm_client_->reset();
-              state_ = ExplorerState::IDLE;
-            } else {
-              RCLCPP_INFO(get_logger(), "All waypoints completed");
-              state_ = ExplorerState::FINISHED;
-            }
+        // TO DO - Map exploring improved: 
+        {  
+          if (find_goal()){
+            RCLCPP_INFO(get_logger(), "Goal sent");
+            state_ = ExplorerState::EXPLORING;
+          } else {
+            RCLCPP_INFO(get_logger(), "All map completed");
+            state_ = ExplorerState::FINISHED;
           }
           break;
         }
 
-
       case ExplorerState::FINISHED:
-        RCLCPP_INFO(get_logger(), "Reset navigation");
-        //current_goal_index_ = 0;
+        RCLCPP_INFO(get_logger(), "Exploration has been finished");
         state_ = ExplorerState::IDLE;
+        completed_ = true;
         if (gm_client_->get_state() != GoalManagerClient::State::IDLE) {
           gm_client_->reset();
         }

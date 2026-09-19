@@ -11,6 +11,8 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(easynav_system REQUIRED)
+find_package(drainy_common REQUIRED)
+find_package(easynav_interfaces REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
   src/drainy_explorer/DrainyExplorer.cpp
@@ -24,6 +26,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   rclcpp::rclcpp
   tf2_geometry_msgs::tf2_geometry_msgs
   easynav_system::easynav_system
+  drainy_common::drainy_common
+  ${easynav_interfaces_TARGETS}
   ${geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
 )

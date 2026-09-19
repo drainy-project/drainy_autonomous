@@ -61,6 +61,8 @@ public:
    */
   void to_occupancy_grid(nav_msgs::msg::OccupancyGrid & grid_msg) const;
 
+  void from_occupancy_grid(const nav_msgs::msg::OccupancyGrid & grid_msg);
+
   /**
   * @brief Saves the map to a file, including metadata and cell data.
   * @param path Path to the output file.
@@ -73,6 +75,7 @@ public:
   size_t width() const {return width_;}
   size_t height() const {return height_;}
   double resolution() const {return resolution_;}
+  uint8_t get_data(int index) const;
   
   std::pair<double, double> cell_to_metric(int x, int y) const;
   std::pair<int, int> metric_to_cell(double mx, double my) const;

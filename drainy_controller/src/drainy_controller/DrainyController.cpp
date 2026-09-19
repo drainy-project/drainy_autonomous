@@ -79,6 +79,14 @@ namespace easynav
         cloud_v_pub_->publish(cloud_v_msg_);
 
         double height = min_z[2] + (max_z[2] - min_z[2]) / 2.0; 
+
+        if(std::abs(height) < safety_vertical_){
+            RCLCPP_WARN(get_node()->get_logger(), 
+                "Imminent Collision due to Narrow Height. Safety limit has been set := %lf",
+                height);
+            height = safety_vertical_;
+            
+        }
         nav_state.set("height", height);
 
         // If navigation is IDLE, force zero velocity
@@ -113,14 +121,6 @@ namespace easynav
         double x_offset = 0.0;
         double y_offset = 0.0;
         double z_offset = 0.0;
-
-        if(std::abs(height) < safety_vertical_){
-            RCLCPP_WARN(get_node()->get_logger(), 
-                "Imminent Collision due to Narrow Height. Safety limit has been set := %lf",
-                height);
-            height = safety_vertical_;
-            nav_state.set("height", height);
-        }
         
         if(std::abs(min_z[2] - robot_pose.pose.pose.position.z) < safety_vertical_) {
             RCLCPP_WARN(get_node()->get_logger(), "Imminent Collision Detected in Z min level:= %lf", min_z[2]);

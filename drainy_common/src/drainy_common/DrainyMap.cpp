@@ -41,6 +41,18 @@ DrainyMap::initialize(
   data_.assign(width_ * height_, -1);
 }
 
+uint8_t 
+DrainyMap::get_data(int index) const
+{
+  if (index > 0){
+    return data_[index];
+  } else {
+    std::cerr << "Out of bounds" << std::endl;
+    return 0;
+  }
+  
+}
+
 std::pair<double, double>
 DrainyMap::cell_to_metric(int x, int y) const
 {
@@ -148,8 +160,8 @@ void
 DrainyMap::from_occupancy_grid(const nav_msgs::msg::OccupancyGrid & grid_msg)
 {
   initialize(
-    grid_msg.info.width,
-    grid_msg.info.height,
+    grid_msg.info.width * grid_msg.info.resolution,
+    grid_msg.info.height * grid_msg.info.resolution,
     grid_msg.info.resolution,
     grid_msg.info.origin.position.x + grid_msg.info.resolution * (grid_msg.info.width / 2),
     grid_msg.info.origin.position.y + grid_msg.info.resolution * (grid_msg.info.height / 2));
@@ -168,6 +180,7 @@ DrainyMap::print(bool view_data) const
 {
   std::cerr << "===== DrainyMap Metadata: =====\n";
   std::cerr << "  Size: " << width_ << " x " << height_ << "\n";
+  std::cerr << "  Size: " << width_ * resolution_ << " x (m) " << height_ * resolution_<< " (m) \n";
   std::cerr << "  Resolution: " << resolution_ << " m/cell\n";
   std::cerr << "  Origin: (" << origin_x_ << ", " << origin_y_ << ")\n";
 
