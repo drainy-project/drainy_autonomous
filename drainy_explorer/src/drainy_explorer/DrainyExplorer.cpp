@@ -61,7 +61,7 @@ namespace easynav
       int index = y * width + x;
       if (drainy_map_.get_data(index) == 100)
       {
-        auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+        auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
         goal[0] = gx;
         goal[1] = gy;
         goal[2] = tf2::getYaw(current_pose_.pose.orientation);
@@ -78,7 +78,7 @@ namespace easynav
         int index = y * width + x;
         if (drainy_map_.get_data(index) == 100)
         {
-          auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+          auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
           goal[0] = gx;
           goal[1] = gy;
           goal[2] = tf2::getYaw(current_pose_.pose.orientation) + (M_PI / 2.0);
@@ -97,7 +97,7 @@ namespace easynav
         if(index < 0){break;}
         if (drainy_map_.get_data(index) == 100)
         {
-          auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+          auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
           goal[0] = gx;
           goal[1] = gy;
           goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI / 2.0);
@@ -116,7 +116,7 @@ namespace easynav
         if(index < 0){break;}
         if (drainy_map_.get_data(index) == 100)
         {
-          auto [gx, gy] = drainy_map_.cell_to_metric(x, y);
+          auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
           goal[0] = gx;
           goal[1] = gy;
           goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI);

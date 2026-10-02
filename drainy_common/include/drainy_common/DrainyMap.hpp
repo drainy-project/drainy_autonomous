@@ -78,6 +78,7 @@ public:
   uint8_t get_data(int index) const;
   
   std::pair<double, double> cell_to_metric(int x, int y) const;
+  std::pair<double, double> world_cell_to_metric(int x, int y) const;
   std::pair<int, int> metric_to_cell(double mx, double my) const;
   std::pair<int, int> world_metric_to_cell(double mx, double my) const;
 

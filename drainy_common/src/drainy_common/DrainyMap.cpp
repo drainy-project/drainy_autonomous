@@ -54,6 +54,17 @@ DrainyMap::get_data(int index) const
 }
 
 std::pair<double, double>
+DrainyMap::world_cell_to_metric(int x, int y) const
+{
+  double map_origin_x = origin_x_ - resolution_ * (width_ / 2);
+  double map_origin_y = origin_y_ - resolution_ * (height_ / 2);
+
+  double mx = map_origin_x + (static_cast<double>(x) + 0.1) * resolution_;
+  double my = map_origin_y + (static_cast<double>(y) + 0.1) * resolution_;
+  return {mx, my};
+}
+
+std::pair<double, double>
 DrainyMap::cell_to_metric(int x, int y) const
 {
   double mx = origin_x_ + (static_cast<double>(x) + 0.1) * resolution_;
@@ -65,7 +76,7 @@ std::pair<int, int>
 DrainyMap::metric_to_cell(double mx, double my) const
 {
     double wx = mx - origin_x_;
-    double wy = my - origin_x_;
+    double wy = my - origin_y_;
 
     int x = static_cast<int>((wx) / resolution_);
     int y = static_cast<int>((wy) / resolution_);
