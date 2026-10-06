@@ -104,7 +104,7 @@ DrainyMap::from_pc2(const sensor_msgs::msg::PointCloud2 msg,
   geometry_msgs::msg::Pose pose,
   double confidence_lenght)
 {
-  //data_.assign(width_ * height_, -1);
+  auto [px, py] = world_metric_to_cell(pose.position.x, pose.position.y);
   for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(msg, "x"),
       iter_y(msg, "y"), iter_z(msg, "z");
       iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
@@ -113,34 +113,68 @@ DrainyMap::from_pc2(const sensor_msgs::msg::PointCloud2 msg,
       continue;
     }
 
-    // double map_origin_x = origin_x_ - resolution_ * (width_ / 2);
-    // double map_origin_y = origin_y_ - resolution_ * (height_ / 2);
-
-    // double wx = *iter_x - map_origin_x;
-    // double wy = *iter_y - map_origin_y;
-
-    // size_t gx = static_cast<int>((wx) / resolution_);
-    // size_t gy = static_cast<int>((wy) / resolution_);
-
     auto [gx, gy] = world_metric_to_cell(*iter_x, *iter_y);
 
+    auto ray_cells = ray_trace(px, py, gx, gy);
+    
+    for (auto [cx, cy] : ray_cells) {
+      if ((cx >= 0) && (cx < width_) && (cy >= 0) && (cy < height_)) {
+        int index = cy * width_ + cx;
+        data_[index] = 0;
+      }
+    }
+
     if ((gx < width_) && (gy < height_)) {
-        int index = gy * width_ + gx;
-        if (data_[index] != 0){
-          data_[index] = 100;
-        }
-        
+      int index = gy * width_ + gx;
+      data_[index] = 100;
+    }
+
+  }
+  
+  // for (int i = 0; i < static_cast<int>(confidence_lenght / resolution_); ++i){
+  //   for (auto [dx, dy] : mask_neighbors){
+  //     int x = px + dx * i;
+  //     int y = py + dy * i;
+  //     int index = y * width_ + x;
+  //     data_[index] = 0;
+  //   }
+  // }
+
+}
+
+std::vector<std::pair<int, int>>
+DrainyMap::ray_trace(int gx, int gy, int px, int py) const
+{
+  std::vector<std::pair<int, int>> cells;
+  
+  int dx = std::abs(px - gx);
+  int dy = std::abs(py - gy);
+  int sx = (gx < px) ? 1 : -1;
+  int sy = (gy < py) ? 1 : -1;
+  int err = dx - dy;
+  
+  int x = gx;
+  int y = gy;
+  
+  while (true) {
+    cells.push_back({x, y});
+    
+    if (x == px && y == py) {
+      break;
+    }
+    
+    int e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y += sy;
     }
   }
-  auto [px, py] = world_metric_to_cell(pose.position.x, pose.position.y);
-  for (int i = 0; i < static_cast<int>(confidence_lenght / resolution_); ++i){
-    for (auto [dx, dy] : mask_neighbors){
-      int x = px + dx * i;
-      int y = py + dy * i;
-      int index = y * width_ + x;
-      data_[index] = 0;
-    }
-  }
+  
+  return cells;
 }
 
 void

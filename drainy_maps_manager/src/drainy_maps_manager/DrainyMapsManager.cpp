@@ -105,6 +105,9 @@ namespace easynav
             RCLCPP_INFO(get_node()->get_logger(), "No Robot Pose. No Map Saved");
             return;
         }
+
+        // TODO Set free space in map from drone
+
         nav_state.set("map", drainy_map_);
     }
 

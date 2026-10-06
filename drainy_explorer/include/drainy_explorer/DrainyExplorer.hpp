@@ -49,7 +49,7 @@ class DrainyExplorer : public rclcpp::Node
     size_t send_retries_ {0};
     const size_t max_retries_ {3};
     uint last_control_type_ {0};
-    double max_long_{20.0};
+    double max_long_{5.0};
 
     DrainyMap drainy_map_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr incoming_map_sub_;

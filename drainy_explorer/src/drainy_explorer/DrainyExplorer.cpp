@@ -54,34 +54,36 @@ namespace easynav
     auto [px, py] = drainy_map_.world_metric_to_cell( 
             current_pose_.pose.position.x, current_pose_.pose.position.y);
     
-    for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+    for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
     {
       int x = px + i;
       int y = py;
       int index = y * width + x;
-      if (drainy_map_.get_data(index) == 100)
+      if (drainy_map_.get_data(index) == 0)
       {
         auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
         goal[0] = gx;
         goal[1] = gy;
         goal[2] = tf2::getYaw(current_pose_.pose.orientation);
+        RCLCPP_INFO(get_logger(), "Forward case");
         solved = true;
         break;
       }
     }
     if(!solved)
     {
-      for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+      for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
       {
         int x = px;
         int y = py + i;
         int index = y * width + x;
-        if (drainy_map_.get_data(index) == 100)
+        if (drainy_map_.get_data(index) == 0)
         {
           auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
           goal[0] = gx;
           goal[1] = gy;
           goal[2] = tf2::getYaw(current_pose_.pose.orientation) + (M_PI / 2.0);
+          RCLCPP_INFO(get_logger(), "Left case");
           solved = true;
           break;
         }
@@ -89,18 +91,19 @@ namespace easynav
     }
     if(!solved)
     {
-      for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+      for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
       {
         int x = px;
         int y = py - i;
         int index = y * width + x;
         if(index < 0){break;}
-        if (drainy_map_.get_data(index) == 100)
+        if (drainy_map_.get_data(index) == 0)
         {
           auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
           goal[0] = gx;
           goal[1] = gy;
           goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI / 2.0);
+          RCLCPP_INFO(get_logger(), "Right case");
           solved = true;
           break;
         }
@@ -108,18 +111,19 @@ namespace easynav
     }
     if(!solved)
     {
-      for(int i = 0; i < static_cast<int>(max_long_ / drainy_map_.resolution()); ++i)
+      for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
       {
         int x = px - i;
         int y = py;
         int index = y * width + x;
         if(index < 0){break;}
-        if (drainy_map_.get_data(index) == 100)
+        if (drainy_map_.get_data(index) == 0)
         {
           auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
           goal[0] = gx;
           goal[1] = gy;
           goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI);
+          RCLCPP_INFO(get_logger(), "Backward case");
           solved = true;
           break;
         }
@@ -223,7 +227,7 @@ namespace easynav
         break;
 
       case ExplorerState::DO_AT_WAYPOINT:
-        // TO DO - Map exploring improved: 
+        gm_client_->reset(); 
         {  
           if (find_goal()){
             RCLCPP_INFO(get_logger(), "Goal sent");
