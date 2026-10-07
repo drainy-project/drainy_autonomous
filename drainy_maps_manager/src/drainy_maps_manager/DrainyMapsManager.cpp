@@ -32,11 +32,11 @@ namespace easynav
         drainy_map_.initialize(max_lenght_,max_lenght_,resolution_, origin_x_, origin_y_);
 
         occ_map_pub_ = node->create_publisher<nav_msgs::msg::OccupancyGrid>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/map",
+            node->get_name() + std::string("/") + plugin_name + "/map",
             rclcpp::QoS(1).transient_local().reliable());
 
         cloud_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/cloud_filtered", 
+            node->get_name() + std::string("/") + plugin_name + "/cloud_filtered", 
             rclcpp::QoS(1).transient_local().reliable());
 
         incoming_pc2_map_sub_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -73,7 +73,7 @@ namespace easynav
             });
 
         savemap_srv_ = node->create_service<std_srvs::srv::Trigger>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/savemap",
+            node->get_name() + std::string("/") + plugin_name + "/savemap",
             [this](
                 const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
                 std::shared_ptr<std_srvs::srv::Trigger::Response> response)

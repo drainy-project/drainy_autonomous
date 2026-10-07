@@ -25,11 +25,11 @@ namespace easynav
         node->get_parameter(plugin_name + ".safety_radius", safety_radius_);
 
         cloud_h_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/cloud_detection/horizontal", 
+            node->get_name() + std::string("/") + plugin_name + "/cloud_detection/horizontal", 
             rclcpp::QoS(1).transient_local().reliable());
 
         cloud_v_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
-            node->get_fully_qualified_name() + std::string("/") + plugin_name + "/cloud_detection/vertical", 
+            node->get_name() + std::string("/") + plugin_name + "/cloud_detection/vertical", 
             rclcpp::QoS(1).transient_local().reliable());
 
         RCLCPP_INFO(node->get_logger(), "%s plugin has been initialized", plugin_name.c_str());

@@ -104,7 +104,7 @@ DrainyPlanner::on_initialize()
   node->get_parameter<bool>(plugin_name + ".replanning", replanning_);
 
   path_pub_ = get_node()->create_publisher<nav_msgs::msg::Path>(
-    node->get_fully_qualified_name() + std::string("/") + plugin_name + "/path", 10);
+    node->get_name() + std::string("/") + plugin_name + "/path", 10);
 }
 
 void
