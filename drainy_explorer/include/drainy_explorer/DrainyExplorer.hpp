@@ -38,10 +38,19 @@ class DrainyExplorer : public rclcpp::Node
 
     private:
     enum class ExplorerState {IDLE, EXPLORING, FINISHED, ERROR, DO_AT_WAYPOINT};
+    
+    struct SearchDirection {
+      int dx;
+      int dy;
+      double yaw_offset;
+      std::string name;
+    };
+    
     void initialize();
     void cycle();
     bool find_goal();
     void set_home();
+    bool search_goal_in_direction(const SearchDirection& direction, std::vector<double>& goal);
     ExplorerState state_ {ExplorerState::IDLE};
 
     bool initialized_ {false};

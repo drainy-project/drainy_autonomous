@@ -1,9 +1,10 @@
 #include "drainy_explorer/DrainyExplorer.hpp"
+#include <array>
 
 namespace easynav
 {
   DrainyExplorer::DrainyExplorer(const rclcpp::NodeOptions & options)
-  : Node("Exploring_node", options)
+  : Node("explorer_node", options)
   {
     timer_ = create_timer(
           100ms,
@@ -40,6 +41,35 @@ namespace easynav
   }
 
   bool
+  DrainyExplorer::search_goal_in_direction(const SearchDirection& direction, std::vector<double>& goal)
+  {
+    auto width = drainy_map_.width();
+    auto [px, py] = drainy_map_.world_metric_to_cell( 
+            current_pose_.pose.position.x, current_pose_.pose.position.y);
+
+    for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
+    {
+      int x = px + (direction.dx * i);
+      int y = py + (direction.dy * i);
+      int index = y * width + x;
+      
+      if(index < 0) {
+        break;
+      }
+      if (drainy_map_.get_data(index) == 0)
+      {
+        auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
+        goal[0] = gx;
+        goal[1] = gy;
+        goal[2] = tf2::getYaw(current_pose_.pose.orientation) + direction.yaw_offset;
+        RCLCPP_INFO(get_logger(), "%s case", direction.name.c_str());
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool
   DrainyExplorer::find_goal()
   {
     auto width = drainy_map_.width();
@@ -48,103 +78,34 @@ namespace easynav
       RCLCPP_INFO(get_logger(), "The map is not available");
       return false;
     }
+    
     std::vector<double> goal{0.0, 0.0, 0.0};
-    bool solved = false;
+    
+    std::array<SearchDirection, 4> directions = {{
+      {1, 0, 0.0, "Forward"},
+      {0, 1, M_PI / 2.0, "Left"},
+      {0, -1, -M_PI / 2.0, "Right"},
+      {-1, 0, M_PI, "Backward"}
+    }};
 
-    auto [px, py] = drainy_map_.world_metric_to_cell( 
-            current_pose_.pose.position.x, current_pose_.pose.position.y);
-    
-    for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
+    for (const auto& direction : directions)
     {
-      int x = px + i;
-      int y = py;
-      int index = y * width + x;
-      if (drainy_map_.get_data(index) == 0)
+      if (search_goal_in_direction(direction, goal))
       {
-        auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
-        goal[0] = gx;
-        goal[1] = gy;
-        goal[2] = tf2::getYaw(current_pose_.pose.orientation);
-        RCLCPP_INFO(get_logger(), "Forward case");
-        solved = true;
-        break;
+        geometry_msgs::msg::PoseStamped goal_pose;
+        goal_pose.header.frame_id = frame_id_;
+        goal_pose.pose.position.x = goal[0];
+        goal_pose.pose.position.y = goal[1];
+        goal_pose.pose.orientation = setYaw(goal[2]);
+        goals_.goals.push_back(goal_pose);
+        gm_client_->send_goals(goals_);
+        RCLCPP_INFO(get_logger(), "Goal sent at X:= %lf Y:= %lf", goal[0], goal[1]);
+        return true;
       }
     }
-    if(!solved)
-    {
-      for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
-      {
-        int x = px;
-        int y = py + i;
-        int index = y * width + x;
-        if (drainy_map_.get_data(index) == 0)
-        {
-          auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
-          goal[0] = gx;
-          goal[1] = gy;
-          goal[2] = tf2::getYaw(current_pose_.pose.orientation) + (M_PI / 2.0);
-          RCLCPP_INFO(get_logger(), "Left case");
-          solved = true;
-          break;
-        }
-      }
-    }
-    if(!solved)
-    {
-      for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
-      {
-        int x = px;
-        int y = py - i;
-        int index = y * width + x;
-        if(index < 0){break;}
-        if (drainy_map_.get_data(index) == 0)
-        {
-          auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
-          goal[0] = gx;
-          goal[1] = gy;
-          goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI / 2.0);
-          RCLCPP_INFO(get_logger(), "Right case");
-          solved = true;
-          break;
-        }
-      }
-    }
-    if(!solved)
-    {
-      for(int i = static_cast<int>(max_long_ / drainy_map_.resolution()); i > 0 ; --i)
-      {
-        int x = px - i;
-        int y = py;
-        int index = y * width + x;
-        if(index < 0){break;}
-        if (drainy_map_.get_data(index) == 0)
-        {
-          auto [gx, gy] = drainy_map_.world_cell_to_metric(x, y);
-          goal[0] = gx;
-          goal[1] = gy;
-          goal[2] = tf2::getYaw(current_pose_.pose.orientation) - (M_PI);
-          RCLCPP_INFO(get_logger(), "Backward case");
-          solved = true;
-          break;
-        }
-      }
-    }
-    
-    if (solved)
-    {
-      geometry_msgs::msg::PoseStamped goal_pose;
-      goal_pose.header.frame_id = frame_id_;
-      goal_pose.pose.position.x = goal[0];
-      goal_pose.pose.position.y = goal[1];
-      goal_pose.pose.orientation = setYaw(goal[2]);
-      goals_.goals.push_back(goal_pose);
-      gm_client_->send_goals(goals_);
-      RCLCPP_INFO(get_logger(), "Goal sent at X:= %lf Y:= %lf", goal[0], goal[1]);
-      return solved;
-    } else {
-      RCLCPP_INFO(get_logger(), "No Goals availables");
-      return solved;
-    }
+
+    RCLCPP_INFO(get_logger(), "No Goals availables");
+    return false;
   }
 
   void
