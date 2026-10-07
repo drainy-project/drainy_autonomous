@@ -6,7 +6,7 @@ namespace easynav
   DrainyExplorer::DrainyExplorer(const rclcpp::NodeOptions & options)
   : Node("explorer_node", options)
   {
-    timer_ = this->create_timer(
+    timer_ = this->create_wall_timer(
           100ms,
           std::bind(&DrainyExplorer::cycle, this));
 
