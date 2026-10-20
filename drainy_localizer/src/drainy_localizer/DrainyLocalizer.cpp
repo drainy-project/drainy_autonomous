@@ -1,3 +1,5 @@
+// Copyright 2026 Intelligent Robotics Lab
+
 #include "drainy_localizer/DrainyLocalizer.hpp"
 
 namespace easynav

@@ -1,3 +1,5 @@
+// Copyright 2026 Intelligent Robotics Lab
+
 #ifndef DRAINY__CONTROLLER__DRAINYLOCALIZER_HPP_
 #define DRAINY__CONTROLLER__DRAINYLOCALIZER_HPP_
 

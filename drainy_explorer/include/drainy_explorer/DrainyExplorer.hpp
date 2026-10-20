@@ -1,3 +1,5 @@
+// Copyright 2026 Intelligent Robotics Lab
+
 #include <chrono>
 #include <functional>
 #include <memory>
